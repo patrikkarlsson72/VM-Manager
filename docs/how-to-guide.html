@@ -1,0 +1,185 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>VM Manager - User Guide</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+            margin: 10px 0;
+        }
+        code {
+            background-color: #f7f9fa;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+        }
+        pre {
+            background-color: #f7f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+        }
+        .note {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+    
+    </head>
+    <body>
+        <h1 id="vm-manager-how-to-guide">VM Manager - How To Guide</h1>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#initial-setup">Initial Setup</a></li>
+<li><a href="#adding-virtual-machines">Adding Virtual Machines</a></li>
+<li><a href="#connecting-to-machines">Connecting to Machines</a></li>
+<li><a href="#managing-machines">Managing Machines</a></li>
+<li><a href="#customizing-settings">Customizing Settings</a></li>
+</ul>
+<h2 id="initial-setup">Initial Setup</h2>
+<h3 id="first-launch">First Launch</h3>
+<p>When you first launch VM Manager, you'll be prompted to select a default RDP file:</p>
+<p><img alt="Initial Setup" src="images/initial-setup.png" /></p>
+<ol>
+<li>Click "OK" on the prompt</li>
+<li>Browse to select your default RDP file</li>
+<li>The application will create necessary folders automatically</li>
+</ol>
+<h2 id="adding-virtual-machines">Adding Virtual Machines</h2>
+<h3 id="adding-a-single-machine">Adding a Single Machine</h3>
+<p>You can add machines one at a time using the sidebar:</p>
+<p><img alt="Add Single Machine" src="images/add-single.png" /></p>
+<ol>
+<li>Enter the machine name in the "Add Single PC" field</li>
+<li>Click "Add PC"</li>
+<li>The machine will appear in the main view</li>
+</ol>
+<h3 id="adding-multiple-machines">Adding Multiple Machines</h3>
+<p>For batch additions:</p>
+<p><img alt="Add Multiple Machines" src="images/add-multiple.png" /></p>
+<ol>
+<li>Enter machine names in the text area (one per line)</li>
+<li>Click "Add PCs"</li>
+<li>All machines will be added to the main view</li>
+</ol>
+<h2 id="connecting-to-machines">Connecting to Machines</h2>
+<h3 id="basic-connection">Basic Connection</h3>
+<p>To connect to a machine:</p>
+<p><img alt="Connect to Machine" src="images/connect.png" /></p>
+<ol>
+<li>Click on any machine tile</li>
+<li>The RDP connection will launch automatically</li>
+<li>Status indicator shows if machine is available (green) or unavailable (red)</li>
+</ol>
+<h2 id="managing-machines">Managing Machines</h2>
+<h3 id="context-menu-options">Context Menu Options</h3>
+<p>Right-click any machine to access management options:</p>
+<p><img alt="Context Menu" src="images/context-menu.png" /></p>
+<ol>
+<li>Add/Edit Description</li>
+<li>Set Custom RDP Path</li>
+<li>Delete Machine</li>
+</ol>
+<h3 id="adding-descriptions">Adding Descriptions</h3>
+<p>To add a description:</p>
+<p><img alt="Add Description" src="images/add-description.png" /></p>
+<ol>
+<li>Right-click the machine</li>
+<li>Select "Add or Edit Description"</li>
+<li>Enter your description</li>
+<li>Click OK</li>
+</ol>
+<h2 id="customizing-settings">Customizing Settings</h2>
+<h3 id="settings-panel">Settings Panel</h3>
+<p><img alt="Settings Panel" src="images/settings-panel.png" /></p>
+<p>Access application settings:</p>
+<p><img alt="Settings Panel Button" src="images/settings-panel-button.png" /></p>
+<ol>
+<li>Click the Settings button in the sidebar</li>
+<li>Adjust various options:</li>
+<li><strong>Default RDP File</strong>: Choose a different RDP template file for new connections</li>
+<li><strong>Status Refresh Interval</strong>: Control how frequently machine status is checked (in seconds)</li>
+<li><strong>Data Directory</strong>: Change where VM Manager stores its data</li>
+<li><strong>Import/Export</strong>: Backup or restore your settings and machine list</li>
+</ol>
+<h3 id="changing-default-rdp-file">Changing Default RDP File</h3>
+<p>To change the default RDP configuration:</p>
+<ol>
+<li>Open Settings</li>
+<li>Click "Change Default RDP File"</li>
+<li>Browse to select your new RDP template file</li>
+<li>Click OK to save</li>
+</ol>
+<p><em>Note: This affects new connections only. Existing machine-specific RDP settings are preserved.</em></p>
+<h3 id="adjusting-status-refresh">Adjusting Status Refresh</h3>
+<p>To modify how often machine status is checked:</p>
+<ol>
+<li>Open Settings</li>
+<li>Find the "Status Refresh Interval" setting</li>
+<li>Enter your preferred interval in seconds</li>
+<li>Click Save</li>
+</ol>
+<p><em>Tip: A longer interval reduces network traffic but makes status updates less frequent.</em></p>
+<h2 id="tips-and-tricks">Tips and Tricks</h2>
+<h3 id="status-monitoring">Status Monitoring</h3>
+<ul>
+<li>Green indicator: Machine is available</li>
+<li>Red indicator: Machine is unavailable</li>
+<li>Last used time updates automatically</li>
+</ul>
+<h3 id="keyboard-shortcuts">Keyboard Shortcuts</h3>
+<ul>
+<li><code>Enter</code> in single machine field to quickly add</li>
+<li>Right-click for context menu</li>
+<li>Mouse wheel to scroll through machines</li>
+</ul>
+<h3 id="best-practices">Best Practices</h3>
+<ol>
+<li>Use descriptive names for machines</li>
+<li>Add descriptions for better organization</li>
+<li>Regular exports for backup</li>
+<li>Customize RDP settings for specific needs</li>
+</ol>
+    </body>
+    </html>
+    
