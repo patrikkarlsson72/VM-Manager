@@ -315,6 +315,8 @@ class VMManagerUI:
         self.setup_ui()
         self.running_indicators = {}
         self.connection_indicators = {}
+        self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None}
+        self.dragging = False  # Add this flag to track drag state
 
     def setup_ui(self):
         # Create header
@@ -534,19 +536,20 @@ class VMManagerUI:
         is_running = self.vm_manager.get_machine_status(text)
         status_color = "#4CAF50" if is_running else "#FF5252"  # Green if running, red if not
         
-        # Button background
+        # Button background with tag for the specific button
+        button_tag = f"button_{text}"  # Create unique tag for this button
         button_bg = self.create_rounded_rectangle(
             self.canvas,
             x, y, x + width, y + height, 
             corner_radius,
             fill=self.button_bg_color,
-            outline=status_color,  # Use status color for outline
+            outline=status_color,
             width=2,
-            tags="button"
+            tags=(button_tag, "button", "button_bg")  # Add background-specific tag
         )
 
         # Status indicator circle (top right corner)
-        indicator_radius = min(width, height) * 0.05  # 5% of smaller dimension
+        indicator_radius = min(width, height) * 0.05
         indicator_x = x + width - (indicator_radius * 2)
         indicator_y = y + (indicator_radius * 2)
         
@@ -557,7 +560,7 @@ class VMManagerUI:
             indicator_y + indicator_radius,
             fill=status_color,
             outline=status_color,
-            tags="button"
+            tags=(button_tag, "button")
         )
 
         # Calculate text positions
@@ -566,14 +569,14 @@ class VMManagerUI:
         description_y = y + (height * 0.8)
         center_x = x + (width / 2)
 
-        # Create text elements
+        # Create text elements with the same button tag
         title_text = self.canvas.create_text(
             center_x, text_y,
             text=text,
             fill=self.text_color,
             font=('Helvetica', title_font_size, 'bold'),
             anchor="center",
-            tags="button"  # Add same tags to group elements
+            tags=(button_tag, "button")
         )
 
         last_used_text = self.canvas.create_text(
@@ -582,7 +585,7 @@ class VMManagerUI:
             fill=self.text_color,
             font=('Helvetica', info_font_size),
             anchor="center",
-            tags="button"
+            tags=(button_tag, "button")
         )
 
         description_text = None
@@ -593,37 +596,18 @@ class VMManagerUI:
                 fill=self.text_color,
                 font=('Helvetica', status_font_size),
                 anchor="center",
-                tags="button"
+                tags=(button_tag, "button")
             )
 
-        # Add hover effects
-        def on_enter(e):
-            self.canvas.itemconfig(button_bg, fill=self.hover_active_color)
+        # Bind events to the button background
+        self.canvas.tag_bind(button_tag, '<Button-1>', lambda e, name=text: self.handle_button_press(e, name))
+        self.canvas.tag_bind(button_tag, '<B1-Motion>', self.drag)
+        self.canvas.tag_bind(button_tag, '<ButtonRelease-1>', lambda e, name=text: self.handle_button_release(e, name, command))
+        self.canvas.tag_bind(button_tag, '<Button-3>', lambda e: self.show_context_menu(e, text))
 
-        def on_leave(e):
-            self.canvas.itemconfig(button_bg, fill=self.button_bg_color)
-
-        # Bind hover events
-        self.canvas.tag_bind(button_bg, '<Enter>', on_enter)
-        self.canvas.tag_bind(button_bg, '<Leave>', on_leave)
-        self.canvas.tag_bind(title_text, '<Enter>', on_enter)
-        self.canvas.tag_bind(title_text, '<Leave>', on_leave)
-        self.canvas.tag_bind(last_used_text, '<Enter>', on_enter)
-        self.canvas.tag_bind(last_used_text, '<Leave>', on_leave)
-        if description_text:
-            self.canvas.tag_bind(description_text, '<Enter>', on_enter)
-            self.canvas.tag_bind(description_text, '<Leave>', on_leave)
-
-        # Bind click events
-        self.canvas.tag_bind(button_bg, '<Button-1>', lambda e: command())
-        self.canvas.tag_bind(button_bg, '<Button-3>', lambda e: self.show_context_menu(e, text))
-        self.canvas.tag_bind(title_text, '<Button-1>', lambda e: command())
-        self.canvas.tag_bind(title_text, '<Button-3>', lambda e: self.show_context_menu(e, text))
-        self.canvas.tag_bind(last_used_text, '<Button-1>', lambda e: command())
-        self.canvas.tag_bind(last_used_text, '<Button-3>', lambda e: self.show_context_menu(e, text))
-        if description_text:
-            self.canvas.tag_bind(description_text, '<Button-1>', lambda e: command())
-            self.canvas.tag_bind(description_text, '<Button-3>', lambda e: self.show_context_menu(e, text))
+        # Add hover bindings
+        self.canvas.tag_bind(button_tag, '<Enter>', lambda e: self.on_button_hover(e, button_tag))
+        self.canvas.tag_bind(button_tag, '<Leave>', lambda e: self.on_button_leave(e, button_tag))
 
     # Helper method for creating rounded rectangles
     def create_rounded_rectangle(self, canvas, x1, y1, x2, y2, radius, **kwargs):
@@ -1078,6 +1062,105 @@ class VMManagerUI:
                             widget.configure(bg=self.get_current_color(color_name))
             
             messagebox.showinfo("Success", "Colors have been restored to default theme colors.")
+
+    def handle_button_press(self, event, pc_name):
+        """Handle initial button press - could be start of drag or click"""
+        self.drag_data = {
+            "x": event.x,
+            "y": event.y,
+            "item": pc_name,
+            "original_pos": self.vm_manager.pc_names.index(pc_name),
+            "moved": False  # Track if the button was actually dragged
+        }
+        # Raise the button being interacted with
+        self.canvas.tag_raise(f"button_{pc_name}")
+
+    def drag(self, event):
+        """Handle dragging of a button"""
+        if not self.drag_data.get("item"):
+            return
+
+        # Calculate the distance moved
+        dx = event.x - self.drag_data["x"]
+        dy = event.y - self.drag_data["y"]
+
+        # If the movement is significant enough, mark as dragged
+        if abs(dx) > 5 or abs(dy) > 5:  # 5 pixel threshold
+            self.drag_data["moved"] = True
+
+        # Move all elements with the button's specific tag
+        button_tag = f"button_{self.drag_data['item']}"
+        for item in self.canvas.find_withtag(button_tag):
+            self.canvas.move(item, dx, dy)
+
+        # Update the stored position
+        self.drag_data["x"] = event.x
+        self.drag_data["y"] = event.y
+
+    def handle_button_release(self, event, pc_name, command):
+        """Handle button release - either complete drag or handle click"""
+        if not self.drag_data.get("item"):
+            return
+
+        # If the button wasn't dragged, treat it as a click
+        if not self.drag_data.get("moved"):
+            command()  # Execute the command (connect to VM)
+        else:
+            # Handle drag completion
+            drop_pos = self._get_drop_position(event.x, event.y)
+            if drop_pos != self.drag_data["original_pos"]:
+                # Update the PC list order
+                pc_list = self.vm_manager.pc_names
+                pc_list.remove(pc_name)
+                pc_list.insert(drop_pos, pc_name)
+                # Save the new order
+                self.vm_manager.file_manager.save_pcs(pc_list)
+
+        # Reset drag data
+        self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None, "moved": False}
+        
+        # Redraw all buttons in their new positions
+        self.position_buttons()
+
+    def _get_drop_position(self, x, y):
+        """Calculate the position where the button should be dropped"""
+        # Get button dimensions from position_buttons
+        canvas_width = self.canvas.winfo_width()
+        BUTTONS_PER_ROW = 3
+        MARGIN_LEFT = canvas_width * 0.02
+        MARGIN_RIGHT = canvas_width * 0.02
+        BUTTON_SPACING = canvas_width * 0.02
+        
+        available_width = canvas_width - (MARGIN_LEFT + MARGIN_RIGHT + (BUTTONS_PER_ROW - 1) * BUTTON_SPACING)
+        button_width = available_width / BUTTONS_PER_ROW
+        button_height = button_width * 0.6
+
+        # Calculate row and column from drop coordinates
+        col = int((x - MARGIN_LEFT) / (button_width + BUTTON_SPACING))
+        row = int(y / (button_height + BUTTON_SPACING))
+        
+        # Ensure col is within bounds
+        col = max(0, min(col, BUTTONS_PER_ROW - 1))
+        
+        # Calculate the position in the list
+        position = row * BUTTONS_PER_ROW + col
+        
+        # Ensure the position is within bounds
+        return max(0, min(position, len(self.vm_manager.pc_names) - 1))
+
+    def on_button_hover(self, event, button_tag):
+        """Handle mouse hover over button"""
+        # Only change the background rectangle
+        for item in self.canvas.find_withtag(button_tag):
+            if "button_bg" in self.canvas.gettags(item):  # Check for background-specific tag
+                self.canvas.itemconfig(item, fill=self.hover_active_color)
+
+    def on_button_leave(self, event, button_tag):
+        """Handle mouse leaving button"""
+        # Only change the background rectangle
+        for item in self.canvas.find_withtag(button_tag):
+            if "button_bg" in self.canvas.gettags(item):  # Check for background-specific tag
+                self.canvas.itemconfig(item, fill=self.button_bg_color)
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
