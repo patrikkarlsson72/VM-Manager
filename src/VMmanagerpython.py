@@ -22,6 +22,15 @@ THEMES = {
         "borders": "#BD9865"
     },
     "light": {
+        "primary_bg": "#F0F7FF",    # Very light blue background
+        "secondary_bg": "#E8F4F9",   # Soft sky blue for sidebar
+        "button_bg": "#89CFF0",      # Bright baby blue for buttons
+        "header_bg": "#CCE8FF",      # Light azure blue header
+        "text": "#2B4B6F",           # Deep blue text for contrast
+        "hover_active": "#7AB8E0",   # Slightly darker blue for hover
+        "borders": "#B4D8F0"         # Medium blue for borders
+    },
+    "light_origina": {
         "primary_bg": "#F8FAFF",    # Very subtle blue-white for main background
         "secondary_bg": "#F0F4F8",   # Lighter blue-gray for sidebar
         "button_bg": "#7BA9D0",      # Lighter blue for buttons
@@ -47,7 +56,36 @@ THEMES = {
         "text": "#1a2733",
         "hover_active": "#b8c9d9",
         "borders": "#b8c9d9"
+    },
+    "light_colorful": {
+        "primary_bg": "#F0F7FF",    # Very light blue background
+        "secondary_bg": "#E8F4F9",   # Soft sky blue for sidebar
+        "button_bg": "#89CFF0",      # Bright baby blue for buttons
+        "header_bg": "#CCE8FF",      # Light azure blue header
+        "text": "#2B4B6F",           # Deep blue text for contrast
+        "hover_active": "#7AB8E0",   # Slightly darker blue for hover
+        "borders": "#B4D8F0"         # Medium blue for borders
+    },
+    "light_nature": {
+        "primary_bg": "#F8FFF5",    # Very light mint background
+        "secondary_bg": "#EFF8E8",   # Soft sage for sidebar
+        "button_bg": "#9ED5A5",      # Fresh mint green for buttons
+        "header_bg": "#DDEEDD",      # Light sage header
+        "text": "#2F5241",           # Forest green text for contrast
+        "hover_active": "#8BC495",   # Slightly darker mint for hover
+        "borders": "#BCE5C0"         # Medium mint for borders
+    },
+    "light_warm": {
+        "primary_bg": "#FFF9F5",    # Very light peach background
+        "secondary_bg": "#F9F0E8",   # Soft cream for sidebar
+        "button_bg": "#FFB6A3",      # Coral pink for buttons
+        "header_bg": "#FFE4D6",      # Light peach header
+        "text": "#6B4F4F",           # Warm brown text for contrast
+        "hover_active": "#FFA088",   # Darker coral for hover
+        "borders": "#FFD0BE"         # Medium peach for borders
     }
+
+
 }
 
 class FileManager:
@@ -59,6 +97,8 @@ class FileManager:
         self.descriptions_file_path = os.path.join(self.data_dir, "descriptions.txt")
         self.settings_file_path = os.path.join(self.data_dir, "settings.txt")
         self.machine_rdp_file_path = os.path.join(self.data_dir, "machine_rdp.txt")
+        self.categories_file_path = os.path.join(self.data_dir, "categories.txt")
+        self.machine_categories_file_path = os.path.join(self.data_dir, "machine_categories.txt")
 
     def _get_data_directory(self):
         default_data_dir = os.path.join(os.getenv("LOCALAPPDATA"), "VmManager")
@@ -138,6 +178,32 @@ class FileManager:
         self.settings_file_path = os.path.join(self.data_dir, "settings.txt")
         self.machine_rdp_file_path = os.path.join(self.data_dir, "machine_rdp.txt")
 
+    def load_categories(self):
+        """Load categories from file"""
+        if os.path.exists(self.categories_file_path):
+            with open(self.categories_file_path, "r") as file:
+                return file.read().splitlines()
+        return ["Default"]  # Always have a default category
+
+    def save_categories(self, categories):
+        """Save categories to file"""
+        with open(self.categories_file_path, "w") as file:
+            for category in categories:
+                file.write(f"{category}\n")
+
+    def load_machine_categories(self):
+        """Load machine category assignments"""
+        if os.path.exists(self.machine_categories_file_path):
+            with open(self.machine_categories_file_path, "r") as file:
+                return dict(line.strip().split(":", 1) for line in file)
+        return {}
+
+    def save_machine_categories(self, machine_categories):
+        """Save machine category assignments"""
+        with open(self.machine_categories_file_path, "w") as file:
+            for machine, category in machine_categories.items():
+                file.write(f"{machine}:{category}\n")
+
     # ... other file operations ...
 
 class SettingsManager:
@@ -193,6 +259,8 @@ class VMManager:
         self.descriptions = self.file_manager.load_descriptions()
         self.machine_rdp_paths = self.file_manager.load_machine_rdp_paths()
         self.connected_machines = set()  # Track connected machines
+        self.categories = self.file_manager.load_categories()
+        self.machine_categories = self.file_manager.load_machine_categories()
 
     def connect_to_pc(self, pc_name):
         """Connect to a PC and track the connection"""
@@ -286,6 +354,63 @@ class VMManager:
         """Get RDP path for a machine"""
         return self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
 
+    def add_category(self, category_name):
+        """Add a new category"""
+        if category_name and category_name not in self.categories:
+            self.categories.append(category_name)
+            self.file_manager.save_categories(self.categories)
+            return True
+        return False
+
+    def delete_category(self, category_name):
+        """Delete a category and reassign its machines to Default"""
+        if category_name == "Default":
+            return False
+        
+        if category_name in self.categories:
+            self.categories.remove(category_name)
+            
+            # Reassign machines to Default category
+            for machine, category in self.machine_categories.items():
+                if category == category_name:
+                    self.machine_categories[machine] = "Default"
+            
+            self.file_manager.save_categories(self.categories)
+            self.file_manager.save_machine_categories(self.machine_categories)
+            return True
+        return False
+
+    def set_machine_category(self, machine_name, category_name):
+        """Assign a machine to a category"""
+        if category_name in self.categories:
+            self.machine_categories[machine_name] = category_name
+            self.file_manager.save_machine_categories(self.machine_categories)
+            return True
+        return False
+
+    def get_machines_by_category(self, category):
+        """Get all machines in a category"""
+        if category == "Default":
+            # Return all machines for Default category
+            return self.pc_names
+        else:
+            # For other categories, return only machines assigned to that category
+            return [machine for machine, cat in self.machine_categories.items() 
+                    if cat == category and machine in self.pc_names]
+
+    def get_machine_category(self, pc_name):
+        """Get the category for a machine"""
+        return self.machine_categories.get(pc_name, "Default")
+
+    def remove_machine_category(self, pc_name):
+        """Remove the category assignment from a machine"""
+        if self.machine_categories.get(pc_name, "Default") != "Default":
+            category = self.machine_categories.get(pc_name)
+            self.machine_categories[pc_name] = "Default"
+            self.file_manager.save_machine_categories(self.machine_categories)
+            return True
+        return False
+
 class VMManagerUI:
     """Main application UI"""
     def __init__(self, vm_manager):
@@ -317,6 +442,7 @@ class VMManagerUI:
         self.connection_indicators = {}
         self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None}
         self.dragging = False  # Add this flag to track drag state
+        self.current_filter = None  # Add this to track current category filter
 
     def setup_ui(self):
         # Create header
@@ -377,11 +503,234 @@ class VMManagerUI:
         )
         self.settings_button.pack(pady=10, padx=10)
 
+        # Add Category Management section
+        self.create_category_section()
+
+        # Add PC Buttons Frame
+        add_pc_frame = tk.Frame(
+            self.left_frame, 
+            bg=self.secondary_bg_color,  # Use theme color
+            highlightthickness=0  # Remove border
+        )
+        add_pc_frame.pack(fill="x", padx=10, pady=10)
+
+        # Add Single PC Label
+        self.add_single_pc_label = tk.Label(
+            self.left_frame,
+            text="Add Single PC",
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        )
+        self.add_single_pc_label.pack(anchor="w", pady=(10, 5), padx=(10, 0))
+
+        # Add Single PC input frame
+        self.single_pc_input_frame = tk.Frame(  # Make it an instance variable
+            self.left_frame,
+            bg=self.secondary_bg_color  # This controls the background
+        )
+        self.single_pc_input_frame.pack(fill="x", padx=10)
+
         # Single PC input
-        self.create_single_pc_input()
+        self.single_pc_entry = tk.Entry(
+            self.single_pc_input_frame,
+            font=('Helvetica', 12),
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            insertbackground=self.text_color
+        )
+        self.single_pc_entry.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 5))
+
+        # Add PC Button
+        self.add_pc_btn = tk.Button(  # Make it an instance variable so we can update it
+            self.single_pc_input_frame,
+            text="+",
+            command=self.add_single_pc,
+            font=('Helvetica', 12),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=3
+        )
+        self.add_pc_btn.pack(side=tk.RIGHT)
+
+        # Multiple PC Button
+        multi_pc_btn = tk.Button(
+            self.left_frame,
+            text="Add Multiple PCs",
+            command=self.show_multi_pc_dialog,
+            font=('Helvetica', 12),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        )
+        multi_pc_btn.pack(pady=5, padx=10, fill="x")
+
+    def show_multi_pc_dialog(self):
+        """Show dialog for adding multiple PCs"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Add Multiple PCs")
+        dialog.geometry("400x300")
+        dialog.configure(bg=self.primary_bg_color)
         
-        # Multiple PC input
-        self.create_multiple_pc_input()
+        # Make dialog modal
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Add explanation label
+        tk.Label(
+            dialog,
+            text="Enter PC names (one per line):",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(pady=10, padx=10)
+
+        # Text area for PC names
+        text_area = tk.Text(
+            dialog,
+            height=10,
+            width=40,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12),
+            insertbackground=self.text_color
+        )
+        text_area.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        # Buttons frame
+        btn_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        btn_frame.pack(pady=10, padx=10, fill=tk.X)
+
+        # Add button
+        tk.Button(
+            btn_frame,
+            text="Add PCs",
+            command=lambda: self.add_multiple_pcs_from_dialog(text_area, dialog),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(side=tk.LEFT, expand=True, padx=5)
+
+        # Cancel button
+        tk.Button(
+            btn_frame,
+            text="Cancel",
+            command=dialog.destroy,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(side=tk.LEFT, expand=True, padx=5)
+
+    def add_multiple_pcs_from_dialog(self, text_area, dialog):
+        """Add multiple PCs from dialog text area"""
+        pc_text = text_area.get("1.0", tk.END).strip()
+        if pc_text:
+            pcs = pc_text.splitlines()
+            added_count = 0
+            for pc in pcs:
+                if self.vm_manager.add_pc(pc.strip()):
+                    added_count += 1
+            self.position_buttons()
+            dialog.destroy()
+            if added_count > 0:
+                messagebox.showinfo("Success", f"Added {added_count} PCs successfully!")
+            else:
+                messagebox.showwarning("Note", "No new PCs were added. They might already exist.")
+
+    def create_category_section(self):
+        """Create the category management section in sidebar"""
+        # Category Frame
+        category_frame = tk.Frame(
+            self.left_frame,
+            bg=self.secondary_bg_color
+        )
+        category_frame.pack(pady=10, padx=10, fill="x")
+
+        # Categories Label
+        self.categories_label = tk.Label(  # Make it an instance variable to update later
+            category_frame,
+            text="Categories",
+            bg=self.secondary_bg_color,
+            fg=self.text_color,  # Use theme text color
+            font=('Helvetica', 14, 'bold')
+        )
+        self.categories_label.pack(anchor="w", pady=(0, 5))
+
+        # Container for category buttons
+        self.category_buttons_container = tk.Frame(
+            category_frame,
+            bg=self.secondary_bg_color
+        )
+        self.category_buttons_container.pack(fill="x", padx=5, pady=5)
+
+        # Add Category Button
+        self.add_category_btn = tk.Button(
+            category_frame,
+            text="Add Category+",
+            command=self.add_category_dialog,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 10),
+            relief="solid",
+            bd=1,
+            cursor="hand2"
+        )
+        self.add_category_btn.pack(pady=(5, 10), padx=10, fill="x")
+
+        # Create initial category buttons
+        self.update_category_buttons()
+
+    def update_category_buttons(self):
+        """Update the category buttons display"""
+        # Clear existing buttons
+        for widget in self.category_buttons_container.winfo_children():
+            widget.destroy()
+
+        # Create button for each category
+        for category in self.vm_manager.categories:
+            btn = tk.Button(
+                self.category_buttons_container,
+                text=category,
+                command=lambda c=category: self.filter_by_category(c),
+                bg=self.secondary_bg_color,  # Set initial background
+                fg=self.text_color,
+                font=('Helvetica', 11),
+                bd=0,
+                anchor="w",
+                padx=10,
+                cursor="hand2"
+            )
+            btn.pack(fill="x", pady=2)
+
+            # Force initial state
+            btn.update_idletasks()
+
+            # Bind hover effects
+            btn.bind('<Enter>', lambda e, b=btn: self.on_category_button_hover(b))
+            btn.bind('<Leave>', lambda e, b=btn: self.on_category_button_leave(b))
+            
+            # Force correct initial state
+            self.on_category_button_leave(btn)
+
+    def on_category_button_hover(self, button):
+        """Handle category button hover"""
+        button.configure(bg=self.hover_active_color)
+
+    def on_category_button_leave(self, button):
+        """Handle category button mouse leave"""
+        button.configure(bg=self.secondary_bg_color)
+
+    def filter_by_category(self, category_name):
+        """Filter machines by category"""
+        self.current_filter = category_name
+        filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
+        self.position_buttons(filtered_pcs)
+
+    def add_category_dialog(self):
+        """Show dialog to add a new category"""
+        category_name = simpledialog.askstring("Add Category", "Enter category name:")
+        if category_name:
+            if self.vm_manager.add_category(category_name):
+                self.update_category_buttons()  # Update the category buttons instead of listbox
 
     def create_main_area(self):
         self.main_frame = tk.Frame(self.root, bg=self.primary_bg_color)
@@ -405,129 +754,6 @@ class VMManagerUI:
         # Bind events
         self.canvas.bind('<Configure>', lambda e: self.position_buttons())
         self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
-
-    def create_single_pc_input(self):
-        self.single_pc_label = tk.Label(
-            self.left_frame, 
-            text="Add Single PC:", 
-            bg=self.secondary_bg_color, 
-            fg=self.text_color, 
-            font=('Helvetica', 12)
-        )
-        self.single_pc_label.pack(pady=10)
-
-        self.single_pc_entry = tk.Entry(
-            self.left_frame,
-            font=('Helvetica', 12),
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            insertbackground=self.text_color
-        )
-        self.single_pc_entry.pack(pady=5)
-
-        self.add_single_button = tk.Button(
-            self.left_frame,
-            text="Add PC",
-            command=self.add_single_pc,
-            font=('Helvetica', 12),
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            activebackground=self.hover_active_color
-        )
-        self.add_single_button.pack(pady=10)
-
-    def create_multiple_pc_input(self):
-        self.multi_pc_label = tk.Label(
-            self.left_frame,
-            text="Add Multiple PCs:",
-            bg=self.secondary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12)
-        )
-        self.multi_pc_label.pack(pady=(20, 5), padx=10)
-
-        self.multi_pc_text = tk.Text(
-            self.left_frame,
-            height=10,
-            width=20,
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12),
-            insertbackground=self.text_color
-        )
-        self.multi_pc_text.pack(padx=10)
-
-        self.add_multiple_button = tk.Button(
-            self.left_frame,
-            text="Add PCs",
-            command=self.add_multiple_pcs,
-            font=('Helvetica', 12),
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            activebackground=self.hover_active_color
-        )
-        self.add_multiple_button.pack(pady=10, padx=10)
-
-    def position_buttons(self):
-        self.canvas.delete("all")
-
-        # Get the actual visible area dimensions
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-        
-        # Fixed margins and spacing (as percentages of canvas width)
-        MARGIN_LEFT = canvas_width * 0.02  # 2% of width
-        MARGIN_TOP = canvas_height * 0.02  # 2% of height
-        MARGIN_RIGHT = canvas_width * 0.02  # 2% of width
-        BUTTON_SPACING = canvas_width * 0.02  # 2% of width
-        CORNER_RADIUS = min(canvas_width, canvas_height) * 0.02  # 2% of smaller dimension
-        
-        # Calculate responsive button dimensions
-        BUTTONS_PER_ROW = 3
-        available_width = canvas_width - (MARGIN_LEFT + MARGIN_RIGHT + (BUTTONS_PER_ROW - 1) * BUTTON_SPACING)
-        button_width = available_width / BUTTONS_PER_ROW
-        
-        # Make button height proportional to width (e.g., 60% of width)
-        button_height = button_width * 0.6
-        
-        # Calculate font sizes based on button dimensions
-        title_font_size = int(min(button_width * 0.08, button_height * 0.15))
-        info_font_size = int(min(button_width * 0.06, button_height * 0.12))
-        status_font_size = int(min(button_width * 0.05, button_height * 0.1))
-        
-        # Ensure minimum font sizes
-        title_font_size = max(title_font_size, 10)
-        info_font_size = max(info_font_size, 8)
-        status_font_size = max(status_font_size, 8)
-
-        for idx, pc_name in enumerate(self.vm_manager.pc_names):
-            col = idx % BUTTONS_PER_ROW
-            row = idx // BUTTONS_PER_ROW
-            
-            x = MARGIN_LEFT + col * (button_width + BUTTON_SPACING)
-            y = MARGIN_TOP + row * (button_height + BUTTON_SPACING)
-            
-            last_used = self.vm_manager.last_used_times.get(pc_name, "Never")
-            description = self.vm_manager.descriptions.get(pc_name, "")
-
-            # Create button with responsive dimensions and font sizes
-            self.create_rounded_button(
-                pc_name, 
-                last_used, 
-                description,
-                lambda name=pc_name: self.vm_manager.connect_to_pc(name),
-                x, y, 
-                button_width, 
-                button_height, 
-                CORNER_RADIUS,
-                title_font_size,
-                info_font_size,
-                status_font_size
-            )
-
-        # Update scroll region
-        total_height = MARGIN_TOP + ((len(self.vm_manager.pc_names) - 1) // BUTTONS_PER_ROW + 1) * (button_height + BUTTON_SPACING)
-        self.canvas.config(scrollregion=(0, 0, canvas_width, total_height))
 
     def create_rounded_button(self, text, last_used, description, command, x, y, width, height, corner_radius, 
                                  title_font_size, info_font_size, status_font_size):
@@ -610,7 +836,7 @@ class VMManagerUI:
         self.canvas.tag_bind(button_tag, '<Leave>', lambda e: self.on_button_leave(e, button_tag))
 
     # Helper method for creating rounded rectangles
-    def create_rounded_rectangle(self, canvas, x1, y1, x2, y2, radius, **kwargs):
+    def create_rounded_rectangle(self, canvas, x1, y1, x2, y2, radius=25, **kwargs):
         points = [
             x1 + radius, y1,
             x2 - radius, y1,
@@ -632,9 +858,14 @@ class VMManagerUI:
                 daemon=True
             ).start()
         
-        # Update UI
-        self.position_buttons()
-        # Schedule next update in 5 seconds
+        # Update UI with current filter
+        if self.current_filter:
+            filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+            self.position_buttons(filtered_pcs)
+        else:
+            self.position_buttons()
+            
+        # Schedule next update
         self.root.after(5000, self.update_machine_status)
 
     def _check_single_machine_status(self, pc_name):
@@ -669,10 +900,58 @@ class VMManagerUI:
         self.theme_switch.configure(bg=self.header_bg_color)
         self.underline_frame.configure(bg=self.borders_and_dividers_color)
         
-        # Update sidebar
+        # Update main sidebar frame
         self.left_frame.configure(bg=self.secondary_bg_color)
-        self.border_frame.configure(bg=self.borders_and_dividers_color)
         
+        # Update Categories section
+        if hasattr(self, 'categories_label'):
+            self.categories_label.configure(
+                bg=self.secondary_bg_color,
+                fg=self.text_color
+            )
+        
+        if hasattr(self, 'category_buttons_container'):
+            self.category_buttons_container.configure(bg=self.secondary_bg_color)
+            # Update all category buttons
+            for button in self.category_buttons_container.winfo_children():
+                button.configure(
+                    bg=self.secondary_bg_color,
+                    fg=self.text_color
+                )
+        
+        # Update Add Single PC section
+        for widget in self.left_frame.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.configure(
+                    bg=self.secondary_bg_color,
+                    fg=self.text_color
+                )
+            elif isinstance(widget, tk.Frame):  # For Add Single PC frame
+                widget.configure(bg=self.secondary_bg_color)
+                for child in widget.winfo_children():
+                    if isinstance(child, tk.Entry):
+                        child.configure(
+                            bg=self.primary_bg_color,
+                            fg=self.text_color,
+                            insertbackground=self.text_color
+                        )
+                    elif isinstance(child, tk.Button):
+                        child.configure(
+                            bg=self.button_bg_color,
+                            fg=self.text_color,
+                            activebackground=self.hover_active_color,
+                            activeforeground=self.text_color
+                        )
+        
+        # Update Add Category+ button specifically
+        if hasattr(self, 'add_category_btn'):
+            self.add_category_btn.configure(
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                activebackground=self.hover_active_color,
+                activeforeground=self.text_color
+            )
+
         # Update main area
         self.canvas.configure(bg=self.primary_bg_color)
         self.main_frame.configure(bg=self.primary_bg_color)
@@ -681,10 +960,10 @@ class VMManagerUI:
         for widget in self.left_frame.winfo_children():
             if isinstance(widget, tk.Label):
                 widget.configure(bg=self.secondary_bg_color, fg=self.text_color)
-            elif isinstance(widget, tk.Button):
+            elif isinstance(widget, tk.Button) and widget not in self.category_buttons_container.winfo_children():
                 widget.configure(
-                    bg=self.button_bg_color, 
-                    fg=self.text_color, 
+                    bg=self.button_bg_color,
+                    fg=self.text_color,
                     activebackground=self.hover_active_color,
                     activeforeground=self.text_color
                 )
@@ -700,6 +979,10 @@ class VMManagerUI:
                     fg=self.text_color, 
                     insertbackground=self.text_color
                 )
+
+        # Update the border frame color to match the theme
+        if hasattr(self, 'border_frame'):
+            self.border_frame.configure(bg=self.borders_and_dividers_color)  # This will use #B4D8F0 in light theme
 
     def update_rdp_path(self):
         result = messagebox.askyesno(
@@ -737,27 +1020,74 @@ class VMManagerUI:
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def show_context_menu(self, event, pc_name):
-        context_menu = tk.Menu(
-            self.root, 
-            tearoff=0, 
-            bg=self.secondary_bg_color, 
-            fg=self.text_color
-        )
+        """Show context menu for PC button"""
+        context_menu = tk.Menu(self.root, tearoff=0)
         
-        context_menu.add_command(
-            label="Add or Edit Description",
-            command=lambda: self.vm_manager.add_or_edit_description(pc_name)
-        )
-        context_menu.add_command(
-            label="Set Custom RDP Path",
-            command=lambda: self.vm_manager.set_machine_rdp_path(pc_name)
-        )
-        context_menu.add_command(
-            label="Delete Machine",
-            command=lambda: self.vm_manager.delete_pc(pc_name)
-        )
+        # Add category submenu
+        category_menu = tk.Menu(context_menu, tearoff=0)
         
-        context_menu.post(event.x_root, event.y_root)
+        # Add option to remove category
+        current_category = self.vm_manager.get_machine_category(pc_name)
+        if current_category and current_category != "Default":
+            context_menu.add_command(
+                label=f"Remove from '{current_category}'",
+                command=lambda: self.remove_machine_category(pc_name)
+            )
+        
+        # Add categories submenu
+        for category in self.vm_manager.categories:
+            if category != "Default":  # Skip Default as it's not an assignable category
+                category_menu.add_command(
+                    label=category,
+                    command=lambda c=category: self.set_machine_category(pc_name, c)
+                )
+        
+        context_menu.add_cascade(label="Set Category", menu=category_menu)
+        
+        # Add other menu items
+        context_menu.add_separator()
+        context_menu.add_command(label="Set RDP Path", command=lambda: self.set_rdp_path(pc_name))
+        context_menu.add_command(label="Edit Description", command=lambda: self.edit_description(pc_name))
+        context_menu.add_command(label="Delete", command=lambda: self.delete_pc(pc_name))
+        
+        context_menu.tk_popup(event.x_root, event.y_root)
+
+    def set_rdp_path(self, pc_name):
+        """Set custom RDP path for a specific PC"""
+        rdp_path = filedialog.askopenfilename(
+            title=f"Select RDP File for {pc_name}",
+            filetypes=(("RDP Files", "*.rdp"), ("All Files", "*.*"))
+        )
+        if rdp_path:
+            self.vm_manager.set_machine_rdp_path(pc_name, rdp_path)
+
+    def remove_machine_category(self, pc_name):
+        """Remove the category assignment from a machine"""
+        if self.vm_manager.remove_machine_category(pc_name):
+            # Refresh display maintaining current filter
+            if self.current_filter:
+                filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+                self.position_buttons(filtered_pcs)
+            else:
+                self.position_buttons()
+
+    def edit_description(self, pc_name):
+        """Edit the description for a machine"""
+        current_description = self.vm_manager.get_description(pc_name)
+        new_description = simpledialog.askstring("Edit Description", "Enter new description:", initialvalue=current_description)
+        if new_description:
+            self.vm_manager.descriptions[pc_name] = new_description
+            self.file_manager.save_descriptions(self.vm_manager.descriptions)
+            self.position_buttons()
+
+    def delete_pc(self, pc_name):
+        """Delete a machine and refresh the display"""
+        if self.vm_manager.delete_pc(pc_name):
+            if self.current_filter:
+                filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+                self.position_buttons(filtered_pcs)
+            else:
+                self.position_buttons()
 
     def update_settings(self):
         settings_window = tk.Toplevel(self.root)
@@ -1161,6 +1491,79 @@ class VMManagerUI:
         for item in self.canvas.find_withtag(button_tag):
             if "button_bg" in self.canvas.gettags(item):  # Check for background-specific tag
                 self.canvas.itemconfig(item, fill=self.button_bg_color)
+
+    def set_machine_category(self, pc_name, category):
+        """Set the category for a machine"""
+        if self.vm_manager.set_machine_category(pc_name, category):
+            # Refresh display maintaining current filter
+            if self.current_filter:
+                filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+                self.position_buttons(filtered_pcs)
+            else:
+                self.position_buttons()
+
+    def position_buttons(self, pc_list=None):
+        """Position buttons on canvas, optionally using a filtered list of PCs"""
+        self.canvas.delete("all")
+
+        # Use filtered list if provided, otherwise use all PCs
+        pcs_to_display = pc_list if pc_list is not None else self.vm_manager.pc_names
+
+        # Get the actual visible area dimensions
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        # Fixed margins and spacing (as percentages of canvas width)
+        MARGIN_LEFT = canvas_width * 0.02
+        MARGIN_TOP = canvas_height * 0.02
+        MARGIN_RIGHT = canvas_width * 0.02
+        BUTTON_SPACING = canvas_width * 0.02
+        CORNER_RADIUS = min(canvas_width, canvas_height) * 0.02
+        
+        # Calculate responsive button dimensions
+        BUTTONS_PER_ROW = 3
+        available_width = canvas_width - (MARGIN_LEFT + MARGIN_RIGHT + (BUTTONS_PER_ROW - 1) * BUTTON_SPACING)
+        button_width = available_width / BUTTONS_PER_ROW
+        button_height = button_width * 0.6
+        
+        # Calculate font sizes based on button dimensions
+        title_font_size = int(min(button_width * 0.08, button_height * 0.15))
+        info_font_size = int(min(button_width * 0.06, button_height * 0.12))
+        status_font_size = int(min(button_width * 0.05, button_height * 0.1))
+        
+        # Ensure minimum font sizes
+        title_font_size = max(title_font_size, 10)
+        info_font_size = max(info_font_size, 8)
+        status_font_size = max(status_font_size, 8)
+
+        for idx, pc_name in enumerate(pcs_to_display):
+            col = idx % BUTTONS_PER_ROW
+            row = idx // BUTTONS_PER_ROW
+            
+            x = MARGIN_LEFT + col * (button_width + BUTTON_SPACING)
+            y = MARGIN_TOP + row * (button_height + BUTTON_SPACING)
+            
+            last_used = self.vm_manager.get_last_used_time(pc_name)
+            description = self.vm_manager.get_description(pc_name)
+
+            # Create button with responsive dimensions and font sizes
+            self.create_rounded_button(
+                pc_name, 
+                last_used, 
+                description,
+                lambda name=pc_name: self.vm_manager.connect_to_pc(name),
+                x, y, 
+                button_width, 
+                button_height, 
+                CORNER_RADIUS,
+                title_font_size,
+                info_font_size,
+                status_font_size
+            )
+
+        # Update scroll region using filtered list length
+        total_height = MARGIN_TOP + ((len(pcs_to_display) - 1) // BUTTONS_PER_ROW + 1) * (button_height + BUTTON_SPACING)
+        self.canvas.config(scrollregion=(0, 0, canvas_width, total_height))
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
