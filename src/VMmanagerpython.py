@@ -265,6 +265,7 @@ class VMManager:
         self.connected_machines = set()  # Track connected machines
         self.categories = self.file_manager.load_categories()
         self.machine_categories = self.file_manager.load_machine_categories()
+        self.cleanup_temp_rdp_files()  # Clean up old temporary RDP files
 
     def connect_to_pc(self, pc_name):
         """Connect to a PC and track the connection"""
@@ -417,11 +418,193 @@ class VMManager:
             return True
         return False
 
+    def share_via_teams(self, pc_name):
+        """Share machine via Microsoft Teams with RDP file"""
+        try:
+            # Get the RDP file path for this machine
+            rdp_path = self.get_rdp_path(pc_name)
+            
+            # Create a temporary copy of the RDP file with machine-specific settings
+            temp_rdp_path = self.prepare_shareable_rdp(pc_name, rdp_path)
+            
+            # Create the Teams deep link with URL-encoded message
+            message = f"Connect to {pc_name} using Remote Desktop"
+            encoded_message = message.replace(" ", "%20")
+            teams_url = f"msteams:/l/chat/0/0?users=&message={encoded_message}"
+            
+            # Open Teams using the protocol handler
+            os.startfile(teams_url)
+            
+            # Also open the file location so user can easily attach it in Teams
+            if temp_rdp_path:
+                subprocess.run(['explorer', '/select,', temp_rdp_path])
+                
+                messagebox.showinfo("Share via Teams", 
+                    "Teams has been opened.\n"
+                    "1. Select your recipient(s)\n"
+                    "2. Attach the highlighted RDP file from the opened folder\n"
+                    "3. Send your message")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error sharing via Teams: {str(e)}")
+
+    def prepare_shareable_rdp(self, pc_name, source_rdp_path):
+        """Prepare a shareable RDP file with machine-specific settings"""
+        try:
+            # Verify source RDP path exists
+            if not source_rdp_path or not os.path.exists(source_rdp_path):
+                messagebox.showerror("Error", 
+                    "No RDP template file found.\n"
+                    "Please set the RDP path in Settings first.")
+                return None
+            
+            # Create a directory for temporary RDP files if it doesn't exist
+            temp_dir = os.path.join(self.file_manager.data_dir, "temp_share")
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Create a new RDP file name with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_rdp_path = os.path.join(temp_dir, f"{pc_name}_{timestamp}.rdp")
+            
+            # Try different encodings
+            encodings = ['utf-8', 'utf-8-sig', 'utf-16', 'ascii', 'iso-8859-1']
+            content = None
+            
+            for encoding in encodings:
+                try:
+                    with open(source_rdp_path, 'r', encoding=encoding) as f:
+                        content = f.readlines()
+                    break  # If successful, break the loop
+                except UnicodeDecodeError:
+                    continue
+            
+            if content is None:
+                messagebox.showerror("Error", "Could not read the RDP file with any supported encoding.")
+                return None
+            
+            # Write the new RDP file with UTF-8 encoding
+            try:
+                with open(temp_rdp_path, 'w', encoding='utf-8') as f:
+                    has_full_address = False
+                    for line in content:
+                        # Skip any BOM or invalid characters
+                        line = line.strip().replace('\ufeff', '')
+                        if not line:
+                            continue
+                        
+                        if line.startswith('full address:'):
+                            f.write(f'full address:s:{pc_name}\n')
+                            has_full_address = True
+                        else:
+                            f.write(f'{line}\n')
+                    
+                    if not has_full_address:
+                        f.write(f'full address:s:{pc_name}\n')
+                
+                return temp_rdp_path
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not write RDP file: {str(e)}")
+                # Clean up the temp file if we couldn't modify it
+                if os.path.exists(temp_rdp_path):
+                    try:
+                        os.remove(temp_rdp_path)
+                    except:
+                        pass
+                return None
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not prepare RDP file: {str(e)}")
+            return None
+
+    def share_via_email(self, pc_name):
+        """Share machine via default email client with RDP file attachment"""
+        try:
+            # Get and prepare the RDP file
+            rdp_path = self.get_rdp_path(pc_name)
+            temp_rdp_path = self.prepare_shareable_rdp(pc_name, rdp_path)
+            
+            if temp_rdp_path:
+                # Create mailto URL with machine details
+                subject = f"Remote Desktop Connection - {pc_name}"
+                body = (f"Connect to {pc_name} using the attached RDP file.\n\n"
+                       f"Alternatively, you can connect using:\nmstsc /v:{pc_name}")
+                mailto_url = f"mailto:?subject={subject}&body={body}"
+                
+                # First open the containing folder
+                folder_path = os.path.dirname(temp_rdp_path)
+                try:
+                    # Try to open the folder first
+                    os.startfile(folder_path)
+                    
+                    # Then open the email client
+                    os.startfile(mailto_url)
+                    
+                    messagebox.showinfo("Share via Email", 
+                        "1. The folder containing the RDP file has been opened\n"
+                        "2. Your email client has been opened\n"
+                        "3. Find the RDP file named: " + os.path.basename(temp_rdp_path) + "\n"
+                        "4. Drag and drop it into your email\n"
+                        "5. Send your email")
+                    
+                except Exception as folder_error:
+                    # Fallback to explorer if os.startfile fails
+                    try:
+                        subprocess.run(['explorer', folder_path], check=True)
+                    except:
+                        messagebox.showerror("Error", 
+                            f"Could not open folder. RDP file is located at:\n{temp_rdp_path}")
+                        
+        except Exception as e:
+            messagebox.showerror("Error", f"Error preparing share: {str(e)}")
+
+    def copy_share_link(self, pc_name):
+        """Copy RDP connection details and prepare RDP file for sharing"""
+        try:
+            # Get and prepare the RDP file
+            rdp_path = self.get_rdp_path(pc_name)
+            temp_rdp_path = self.prepare_shareable_rdp(pc_name, rdp_path)
+            
+            if temp_rdp_path:
+                share_text = (
+                    f"Remote Desktop Connection for {pc_name}\n"
+                    f"1. Use the RDP file located at: {temp_rdp_path}\n"
+                    f"2. Or connect using: mstsc /v:{pc_name}"
+                )
+                
+                # Return the share text and path for the UI to handle
+                return {
+                    'text': share_text,
+                    'path': temp_rdp_path
+                }
+                    
+        except Exception as e:
+            messagebox.showerror("Error", f"Error preparing share: {str(e)}")
+            return None
+
+    def cleanup_temp_rdp_files(self):
+        """Clean up old temporary RDP files"""
+        temp_dir = os.path.join(self.file_manager.data_dir, "temp_share")
+        if os.path.exists(temp_dir):
+            try:
+                # Remove files older than 24 hours
+                current_time = datetime.now()
+                for filename in os.listdir(temp_dir):
+                    file_path = os.path.join(temp_dir, filename)
+                    file_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    if (current_time - file_modified).days >= 1:
+                        os.remove(file_path)
+            except Exception as e:
+                print(f"Error cleaning up temporary RDP files: {str(e)}")
+
 class VMManagerUI:
     """Main application UI"""
     def __init__(self, vm_manager):
         self.vm_manager = vm_manager
         self.root = tk.Tk()
+        # Set the root reference in VMManager
+        self.vm_manager.root = self.root  # Add this line
+        
         self.root.title("")
         self.root.geometry("1000x600")
         
@@ -1027,6 +1210,15 @@ class VMManagerUI:
         """Show context menu for PC button"""
         context_menu = tk.Menu(self.root, tearoff=0)
         
+        # Add sharing submenu
+        share_menu = tk.Menu(context_menu, tearoff=0)
+        share_menu.add_command(label="Share via Teams", 
+            command=lambda: self.vm_manager.share_via_teams(pc_name))
+        share_menu.add_command(label="Copy Share Link", 
+            command=lambda: self.handle_copy_share_link(pc_name))
+        
+        context_menu.add_cascade(label="Share", menu=share_menu)
+        
         # Add category submenu
         category_menu = tk.Menu(context_menu, tearoff=0)
         
@@ -1055,6 +1247,29 @@ class VMManagerUI:
         context_menu.add_command(label="Delete", command=lambda: self.delete_pc(pc_name))
         
         context_menu.tk_popup(event.x_root, event.y_root)
+
+    def handle_copy_share_link(self, pc_name):
+        """Handle copying share link to clipboard"""
+        result = self.vm_manager.copy_share_link(pc_name)
+        if result:
+            try:
+                # Copy to clipboard using tkinter
+                self.root.clipboard_clear()
+                self.root.clipboard_append(result['text'])
+                
+                # Open the file location
+                folder_path = os.path.dirname(result['path'])
+                try:
+                    os.startfile(folder_path)
+                except Exception:
+                    subprocess.run(['explorer', folder_path], check=True)
+                
+                messagebox.showinfo("Copied", 
+                    "Connection details copied to clipboard!\n"
+                    "The RDP file location has been opened for you to share.")
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not copy to clipboard: {str(e)}")
 
     def set_rdp_path(self, pc_name):
         """Set custom RDP path for a specific PC"""
