@@ -876,11 +876,14 @@ class VMManagerUI:
 
         # Create button for each category
         for category in self.vm_manager.categories:
+            # Set initial background color based on whether this is the current filter
+            initial_bg = self.hover_active_color if (hasattr(self, 'current_filter') and self.current_filter == category) else self.secondary_bg_color
+            
             btn = tk.Button(
                 self.category_buttons_container,
                 text=category,
                 command=lambda c=category: self.filter_by_category(c),
-                bg=self.secondary_bg_color,
+                bg=initial_bg,
                 fg=self.text_color,
                 font=('Helvetica', 11),
                 bd=0,
@@ -889,6 +892,9 @@ class VMManagerUI:
                 cursor="hand2"
             )
             btn.pack(fill="x", pady=2)
+
+            # Store category name as an attribute
+            btn.category = category
 
             # Bind hover effects
             btn.bind('<Enter>', lambda e, b=btn: self.on_category_button_hover(b))
@@ -900,17 +906,29 @@ class VMManagerUI:
 
     def on_category_button_hover(self, button):
         """Handle category button hover"""
-        button.configure(bg=self.hover_active_color)
+        if not hasattr(self, 'current_filter') or button.category != self.current_filter:
+            button.configure(bg=self.hover_active_color)
 
     def on_category_button_leave(self, button):
         """Handle category button mouse leave"""
-        button.configure(bg=self.secondary_bg_color)
+        if not hasattr(self, 'current_filter') or button.category != self.current_filter:
+            button.configure(bg=self.secondary_bg_color)
+        else:
+            button.configure(bg=self.hover_active_color)
 
     def filter_by_category(self, category_name):
         """Filter machines by category"""
         self.current_filter = category_name
         filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
         self.position_buttons(filtered_pcs)
+        
+        # Update all category button colors
+        for btn in self.category_buttons_container.winfo_children():
+            if hasattr(btn, 'category'):
+                if btn.category == category_name:
+                    btn.configure(bg=self.hover_active_color)
+                else:
+                    btn.configure(bg=self.secondary_bg_color)
 
     def add_category_dialog(self):
         """Show dialog to add a new category"""
