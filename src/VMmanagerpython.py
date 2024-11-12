@@ -179,11 +179,15 @@ class FileManager:
         self.machine_rdp_file_path = os.path.join(self.data_dir, "machine_rdp.txt")
 
     def load_categories(self):
-        """Load categories from file"""
+        """Load categories from file and remove duplicates"""
+        categories = ["Default"]  # Always start with Default
         if os.path.exists(self.categories_file_path):
             with open(self.categories_file_path, "r") as file:
-                return file.read().splitlines()
-        return ["Default"]  # Always have a default category
+                # Add non-duplicate categories that aren't "Default"
+                for category in file.read().splitlines():
+                    if category not in categories and category != "Default":
+                        categories.append(category)
+        return categories
 
     def save_categories(self, categories):
         """Save categories to file"""
@@ -362,19 +366,21 @@ class VMManager:
             return True
         return False
 
-    def delete_category(self, category_name):
-        """Delete a category and reassign its machines to Default"""
-        if category_name == "Default":
+    def delete_category(self, category):
+        """Delete a category and its assignments"""
+        if category == "Default":
             return False
-        
-        if category_name in self.categories:
-            self.categories.remove(category_name)
             
-            # Reassign machines to Default category
-            for machine, category in self.machine_categories.items():
-                if category == category_name:
-                    self.machine_categories[machine] = "Default"
+        if category in self.categories:
+            # Remove category from list
+            self.categories.remove(category)
             
+            # Remove all assignments of this category from machines
+            for machine in list(self.machine_categories.keys()):
+                if self.machine_categories[machine] == category:
+                    del self.machine_categories[machine]
+            
+            # Save changes
             self.file_manager.save_categories(self.categories)
             self.file_manager.save_machine_categories(self.machine_categories)
             return True
@@ -691,7 +697,7 @@ class VMManagerUI:
                 self.category_buttons_container,
                 text=category,
                 command=lambda c=category: self.filter_by_category(c),
-                bg=self.secondary_bg_color,  # Set initial background
+                bg=self.secondary_bg_color,
                 fg=self.text_color,
                 font=('Helvetica', 11),
                 bd=0,
@@ -701,15 +707,13 @@ class VMManagerUI:
             )
             btn.pack(fill="x", pady=2)
 
-            # Force initial state
-            btn.update_idletasks()
-
             # Bind hover effects
             btn.bind('<Enter>', lambda e, b=btn: self.on_category_button_hover(b))
             btn.bind('<Leave>', lambda e, b=btn: self.on_category_button_leave(b))
             
-            # Force correct initial state
-            self.on_category_button_leave(btn)
+            # Add right-click menu for non-Default categories
+            if category != "Default":
+                btn.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
 
     def on_category_button_hover(self, button):
         """Handle category button hover"""
@@ -1564,6 +1568,33 @@ class VMManagerUI:
         # Update scroll region using filtered list length
         total_height = MARGIN_TOP + ((len(pcs_to_display) - 1) // BUTTONS_PER_ROW + 1) * (button_height + BUTTON_SPACING)
         self.canvas.config(scrollregion=(0, 0, canvas_width, total_height))
+
+    def show_category_context_menu(self, event, category):
+        """Show context menu for category button"""
+        if category == "Default":
+            return
+        
+        context_menu = tk.Menu(self.root, tearoff=0)
+        context_menu.add_command(
+            label=f"Delete '{category}'",
+            command=lambda: self.delete_category(category)
+        )
+        context_menu.tk_popup(event.x_root, event.y_root)
+
+    def delete_category(self, category):
+        """Delete a category after confirmation"""
+        if category == "Default":
+            messagebox.showerror("Error", "Cannot delete the Default category")
+            return
+        
+        if messagebox.askyesno("Confirm Delete", 
+                              f"Are you sure you want to delete the category '{category}'?\n"
+                              "All machines in this category will be unassigned."):
+            if self.vm_manager.delete_category(category):
+                self.update_category_buttons()
+                # If current filter is the deleted category, switch to Default
+                if self.current_filter == category:
+                    self.filter_by_category("Default")
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
