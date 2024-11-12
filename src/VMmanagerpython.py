@@ -1310,12 +1310,13 @@ class VMManagerUI:
 
     def edit_description(self, pc_name):
         """Edit the description for a machine"""
-        current_description = self.vm_manager.get_description(pc_name)
-        new_description = simpledialog.askstring("Edit Description", "Enter new description:", initialvalue=current_description)
-        if new_description:
-            self.vm_manager.descriptions[pc_name] = new_description
-            self.file_manager.save_descriptions(self.vm_manager.descriptions)
-            self.position_buttons()
+        if self.vm_manager.add_or_edit_description(pc_name):
+            # Refresh the display
+            if self.current_filter:
+                filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+                self.position_buttons(filtered_pcs)
+            else:
+                self.position_buttons()
 
     def delete_pc(self, pc_name):
         """Delete a machine and refresh the display"""

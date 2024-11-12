@@ -75,14 +75,18 @@ Access settings through the gear icon to configure:
 
 ## Customization
 
+### Application Settings
+- **Default RDP File**: Change the default RDP configuration file used for connections
+- **Refresh Interval**: Adjust how often machine status checks are performed
+- **Data Directory**: Manage where application data is stored
+- **Import/Export**: Backup and restore your settings and machine list
+
 ### Themes
-- Built-in themes: Dark, Light, Blue Dark, Blue Light
-- Customizable colors for:
-  - Primary Background
-  - Secondary Background
-  - Buttons
-  - Text
-  - Borders
+- Two built-in themes:
+  - Light: Optimized for daytime use
+  - Dark: Easier on the eyes in low-light conditions
+- Theme selection persists between sessions
+- Switch easily using the theme toggle (☀️/🌙) in the header
 
 ### Machine-Specific Settings
 - Custom RDP configurations per machine
