@@ -329,13 +329,8 @@ class VMManager:
             return True
         return False
 
-    def set_machine_rdp_path(self, pc_name):
+    def set_machine_rdp_path(self, pc_name, rdp_path):
         """Set custom RDP path for specific machine"""
-        rdp_path = filedialog.askopenfilename(
-            title=f"Select RDP File for {pc_name}",
-            filetypes=(("RDP Files", "*.rdp"), ("All Files", "*.*"))
-        )
-        
         if rdp_path:
             self.machine_rdp_paths[pc_name] = rdp_path
             self.file_manager.save_machine_rdp_paths(self.machine_rdp_paths)

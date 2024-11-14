@@ -1,72 +1,225 @@
 
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>VM Manager - User Guide</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Manager - How To Guide</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
     <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #0366d6;
+            --background-color: #ffffff;
+            --code-background: #f8f9fa;
+            --border-color: #e1e4e8;
+            --text-color: #24292e;
+            --text-secondary: #586069;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
-            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            color: var(--text-color);
+            background-color: var(--background-color);
         }
+
+        .content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            line-height: 1.25;
+            scroll-margin-top: 2rem;
+        }
+
         h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
+            font-size: 2.5rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
         }
+
         h2 {
-            color: #34495e;
-            margin-top: 30px;
+            font-size: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3rem;
         }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #34495e;
+        }
+
         img {
             max-width: 100%;
             height: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             padding: 5px;
-            margin: 10px 0;
+            margin: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
         }
+
+        img:hover {
+            transform: scale(1.01);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
         code {
-            background-color: #f7f9fa;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: Consolas, monospace;
+            background-color: var(--code-background);
+            padding: 0.2em 0.4em;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.9em;
+            color: #d63384;
         }
+
         pre {
-            background-color: #f7f9fa;
-            padding: 15px;
-            border-radius: 5px;
+            background-color: var(--code-background);
+            padding: 1rem;
+            border-radius: 8px;
             overflow-x: auto;
+            border: 1px solid var(--border-color);
+            margin: 1rem 0;
         }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: var(--text-color);
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
-            margin: 20px 0;
+            margin: 1rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
         }
+
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
             text-align: left;
         }
+
         th {
-            background-color: #f5f5f5;
+            background-color: var(--code-background);
+            font-weight: 600;
         }
-        .note {
+
+        tr:nth-child(even) {
             background-color: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 15px;
-            margin: 20px 0;
+        }
+
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+
+        blockquote {
+            border-left: 4px solid var(--secondary-color);
+            padding: 0.5rem 1rem;
+            color: var(--text-secondary);
+            margin: 1rem 0;
+            background-color: var(--code-background);
+            border-radius: 0 8px 8px 0;
+        }
+
+        ul, ol {
+            padding-left: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        li {
+            margin: 0.5rem 0;
+        }
+
+        a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        strong {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        em {
+            color: var(--text-secondary);
+        }
+
+        .toc {
+            background-color: var(--code-background);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.75rem;
+            }
+
+            h3 {
+                font-size: 1.25rem;
+            }
+
+            pre {
+                max-width: calc(100vw - 2rem);
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                padding: 0;
+                font-size: 12pt;
+            }
+
+            .content {
+                box-shadow: none;
+                padding: 0;
+            }
+
+            img {
+                max-width: 500px;
+            }
         }
     </style>
-    
-    </head>
-    <body>
+</head>
+<body>
+    <div class="content">
         <h1 id="vm-manager-how-to-guide">VM Manager - How To Guide</h1>
 <h2 id="table-of-contents">Table of Contents</h2>
 <ul>
@@ -75,6 +228,8 @@
 <li><a href="#connecting-to-machines">Connecting to Machines</a></li>
 <li><a href="#managing-machines">Managing Machines</a></li>
 <li><a href="#customizing-settings">Customizing Settings</a></li>
+<li><a href="#sharing-machines">Sharing Machines</a></li>
+<li><a href="#tips-and-tricks">Tips and Tricks</a></li>
 </ul>
 <h2 id="initial-setup">Initial Setup</h2>
 <h3 id="first-launch">First Launch</h3>
@@ -84,6 +239,14 @@
 <li>Click "OK" on the prompt</li>
 <li>Browse to select your default RDP file</li>
 <li>The application will create necessary folders automatically</li>
+</ol>
+<h3 id="theme-selection">Theme Selection</h3>
+<p>VM Manager supports both light and dark themes:</p>
+<p><img alt="Theme Selection" src="images/theme-selection.png" /></p>
+<ol>
+<li>Click the theme toggle (☀️/🌙) in the header</li>
+<li>Theme changes apply immediately</li>
+<li>Selection persists between sessions</li>
 </ol>
 <h2 id="adding-virtual-machines">Adding Virtual Machines</h2>
 <h3 id="adding-a-single-machine">Adding a Single Machine</h3>
@@ -111,6 +274,15 @@
 <li>The RDP connection will launch automatically</li>
 <li>Status indicator shows if machine is available (green) or unavailable (red)</li>
 </ol>
+<h3 id="custom-rdp-connections">Custom RDP Connections</h3>
+<p>To use a specific RDP configuration:</p>
+<p><img alt="Custom RDP" src="images/custom-rdp.png" /></p>
+<ol>
+<li>Right-click the machine</li>
+<li>Select "Set RDP Path"</li>
+<li>Choose your custom RDP file</li>
+<li>Future connections will use this configuration</li>
+</ol>
 <h2 id="managing-machines">Managing Machines</h2>
 <h3 id="context-menu-options">Context Menu Options</h3>
 <p>Right-click any machine to access management options:</p>
@@ -118,6 +290,7 @@
 <ol>
 <li>Add/Edit Description</li>
 <li>Set Custom RDP Path</li>
+<li>Share Machine Configuration</li>
 <li>Delete Machine</li>
 </ol>
 <h3 id="adding-descriptions">Adding Descriptions</h3>
@@ -136,16 +309,36 @@
 <p><img alt="Settings Panel Button" src="images/settings-panel-button.png" /></p>
 <ol>
 <li>Click the Settings button in the sidebar</li>
-<li>Adjust various options:</li>
-<li><strong>Default RDP File</strong>: Choose a different RDP template file for new connections</li>
-<li><strong>Status Refresh Interval</strong>: Control how frequently machine status is checked (in seconds)</li>
-<li><strong>Data Directory</strong>: Change where VM Manager stores its data</li>
-<li><strong>Import/Export</strong>: Backup or restore your settings and machine list</li>
+<li>Settings are organized into categories:</li>
+<li><strong>Machine Settings</strong>:<ul>
+<li>Default RDP File: Choose a different RDP template file</li>
+<li>Machine sharing options</li>
+<li>Custom RDP configurations</li>
+</ul>
+</li>
+<li><strong>Application Settings</strong>:<ul>
+<li>Status Refresh Interval: Control check frequency</li>
+<li>Data Directory: Change storage location</li>
+<li>Theme preferences</li>
+</ul>
+</li>
+<li><strong>User Preferences</strong>:<ul>
+<li>Display options</li>
+<li>Behavior settings</li>
+</ul>
+</li>
+<li><strong>Import/Export</strong>:<ul>
+<li>Settings backup/restore</li>
+<li>Machine list management</li>
+<li>Shared configurations</li>
+</ul>
+</li>
 </ol>
 <h3 id="changing-default-rdp-file">Changing Default RDP File</h3>
 <p>To change the default RDP configuration:</p>
 <ol>
 <li>Open Settings</li>
+<li>Navigate to Machine Settings</li>
 <li>Click "Change Default RDP File"</li>
 <li>Browse to select your new RDP template file</li>
 <li>Click OK to save</li>
@@ -155,11 +348,45 @@
 <p>To modify how often machine status is checked:</p>
 <ol>
 <li>Open Settings</li>
+<li>Go to Application Settings</li>
 <li>Find the "Status Refresh Interval" setting</li>
 <li>Enter your preferred interval in seconds</li>
 <li>Click Save</li>
 </ol>
 <p><em>Tip: A longer interval reduces network traffic but makes status updates less frequent.</em></p>
+<h2 id="sharing-machines">Sharing Machines</h2>
+<h3 id="exporting-machine-configurations">Exporting Machine Configurations</h3>
+<p>To share machine settings with others:</p>
+<p><img alt="Share Machine" src="images/share-machine.png" /></p>
+<ol>
+<li>Right-click the machine you want to share</li>
+<li>Select "Share Machine Configuration"</li>
+<li>Choose which settings to include:</li>
+<li>RDP configuration</li>
+<li>Machine description</li>
+<li>Custom paths</li>
+<li>Click "Export" and choose save location</li>
+</ol>
+<h3 id="importing-shared-machines">Importing Shared Machines</h3>
+<p>To import shared machine configurations:</p>
+<p><img alt="Import Machine" src="images/import-machine.png" /></p>
+<ol>
+<li>Open Settings</li>
+<li>Go to Import/Export section</li>
+<li>Click "Import Shared Configuration"</li>
+<li>Browse to the shared configuration file</li>
+<li>Review and confirm the import</li>
+</ol>
+<p><em>Note: Imported settings will not override existing machines unless specified.</em></p>
+<h3 id="managing-shared-configurations">Managing Shared Configurations</h3>
+<p>To manage your shared machines:</p>
+<ol>
+<li>Open Settings</li>
+<li>Navigate to Import/Export</li>
+<li>View shared configuration history</li>
+<li>Remove old shared configurations</li>
+<li>Update sharing preferences</li>
+</ol>
 <h2 id="tips-and-tricks">Tips and Tricks</h2>
 <h3 id="status-monitoring">Status Monitoring</h3>
 <ul>
@@ -172,6 +399,9 @@
 <li><code>Enter</code> in single machine field to quickly add</li>
 <li>Right-click for context menu</li>
 <li>Mouse wheel to scroll through machines</li>
+<li><code>Ctrl+S</code> to quickly share selected machine</li>
+<li><code>Ctrl+I</code> to import configurations</li>
+<li><code>Ctrl+E</code> to export settings</li>
 </ul>
 <h3 id="best-practices">Best Practices</h3>
 <ol>
@@ -179,7 +409,34 @@
 <li>Add descriptions for better organization</li>
 <li>Regular exports for backup</li>
 <li>Customize RDP settings for specific needs</li>
+<li>Share configurations with team members</li>
+<li>Keep shared configurations organized</li>
+<li>Review and update machine settings periodically</li>
 </ol>
-    </body>
-    </html>
-    
+<h3 id="troubleshooting-common-issues">Troubleshooting Common Issues</h3>
+<ol>
+<li><strong>Connection Problems</strong></li>
+<li>Verify machine name</li>
+<li>Check network connectivity</li>
+<li>
+<p>Confirm RDP port access</p>
+</li>
+<li>
+<p><strong>Sharing Issues</strong></p>
+</li>
+<li>Verify file permissions</li>
+<li>Check configuration completeness</li>
+<li>
+<p>Ensure compatible settings</p>
+</li>
+<li>
+<p><strong>Settings Issues</strong></p>
+</li>
+<li>Clear application cache</li>
+<li>Verify write permissions</li>
+<li>Check available disk space</li>
+</ol>
+<p><em>For additional support, consult the full documentation or contact support.</em></p>
+    </div>
+</body>
+</html>

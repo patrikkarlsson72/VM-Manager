@@ -2,7 +2,7 @@ import os
 
 def create_guide():
     try:
-        # Get file path
+        # Get file paths
         current_dir = os.path.dirname(os.path.abspath(__file__))
         md_path = os.path.join(current_dir, 'docs', 'how-to-guide.md')
         
@@ -20,6 +20,8 @@ def create_guide():
 - [Connecting to Machines](#connecting-to-machines)
 - [Managing Machines](#managing-machines)
 - [Customizing Settings](#customizing-settings)
+- [Sharing Machines](#sharing-machines)
+- [Tips and Tricks](#tips-and-tricks)
 """,
             # Chunk 2: Initial Setup
             """## Initial Setup
@@ -32,6 +34,15 @@ When you first launch VM Manager, you'll be prompted to select a default RDP fil
 1. Click "OK" on the prompt
 2. Browse to select your default RDP file
 3. The application will create necessary folders automatically
+
+### Theme Selection
+VM Manager supports both light and dark themes:
+
+![Theme Selection](images/theme-selection.png)
+
+1. Click the theme toggle (☀️/🌙) in the header
+2. Theme changes apply immediately
+3. Selection persists between sessions
 """,
             # Chunk 3: Adding VMs
             """## Adding Virtual Machines
@@ -65,6 +76,16 @@ To connect to a machine:
 1. Click on any machine tile
 2. The RDP connection will launch automatically
 3. Status indicator shows if machine is available (green) or unavailable (red)
+
+### Custom RDP Connections
+To use a specific RDP configuration:
+
+![Custom RDP](images/custom-rdp.png)
+
+1. Right-click the machine
+2. Select "Set RDP Path"
+3. Choose your custom RDP file
+4. Future connections will use this configuration
 """,
             # Chunk 5: Managing
             """## Managing Machines
@@ -76,7 +97,8 @@ Right-click any machine to access management options:
 
 1. Add/Edit Description
 2. Set Custom RDP Path
-3. Delete Machine
+3. Share Machine Configuration
+4. Delete Machine
 
 ### Adding Descriptions
 To add a description:
@@ -99,19 +121,31 @@ Access application settings:
 ![Settings Panel Button](images/settings-panel-button.png)
 
 1. Click the Settings button in the sidebar
-2. Adjust various options:
-   - **Default RDP File**: Choose a different RDP template file for new connections
-   - **Status Refresh Interval**: Control how frequently machine status is checked (in seconds)
-   - **Data Directory**: Change where VM Manager stores its data
-   - **Import/Export**: Backup or restore your settings and machine list
+2. Settings are organized into categories:
+   - **Machine Settings**:
+     - Default RDP File: Choose a different RDP template file
+     - Machine sharing options
+     - Custom RDP configurations
+   - **Application Settings**:
+     - Status Refresh Interval: Control check frequency
+     - Data Directory: Change storage location
+     - Theme preferences
+   - **User Preferences**:
+     - Display options
+     - Behavior settings
+   - **Import/Export**:
+     - Settings backup/restore
+     - Machine list management
+     - Shared configurations
 
 ### Changing Default RDP File
 To change the default RDP configuration:
 
 1. Open Settings
-2. Click "Change Default RDP File"
-3. Browse to select your new RDP template file
-4. Click OK to save
+2. Navigate to Machine Settings
+3. Click "Change Default RDP File"
+4. Browse to select your new RDP template file
+5. Click OK to save
 
 *Note: This affects new connections only. Existing machine-specific RDP settings are preserved.*
 
@@ -119,13 +153,52 @@ To change the default RDP configuration:
 To modify how often machine status is checked:
 
 1. Open Settings
-2. Find the "Status Refresh Interval" setting
-3. Enter your preferred interval in seconds
-4. Click Save
+2. Go to Application Settings
+3. Find the "Status Refresh Interval" setting
+4. Enter your preferred interval in seconds
+5. Click Save
 
 *Tip: A longer interval reduces network traffic but makes status updates less frequent.*
 """,
-            # Chunk 7: Tips
+            # Chunk 7: Sharing
+            """## Sharing Machines
+
+### Exporting Machine Configurations
+To share machine settings with others:
+
+![Share Machine](images/share-machine.png)
+
+1. Right-click the machine you want to share
+2. Select "Share Machine Configuration"
+3. Choose which settings to include:
+   - RDP configuration
+   - Machine description
+   - Custom paths
+4. Click "Export" and choose save location
+
+### Importing Shared Machines
+To import shared machine configurations:
+
+![Import Machine](images/import-machine.png)
+
+1. Open Settings
+2. Go to Import/Export section
+3. Click "Import Shared Configuration"
+4. Browse to the shared configuration file
+5. Review and confirm the import
+
+*Note: Imported settings will not override existing machines unless specified.*
+
+### Managing Shared Configurations
+To manage your shared machines:
+
+1. Open Settings
+2. Navigate to Import/Export
+3. View shared configuration history
+4. Remove old shared configurations
+5. Update sharing preferences
+""",
+            # Chunk 8: Tips and Troubleshooting
             """## Tips and Tricks
 
 ### Status Monitoring
@@ -137,29 +210,46 @@ To modify how often machine status is checked:
 - `Enter` in single machine field to quickly add
 - Right-click for context menu
 - Mouse wheel to scroll through machines
+- `Ctrl+S` to quickly share selected machine
+- `Ctrl+I` to import configurations
+- `Ctrl+E` to export settings
 
 ### Best Practices
 1. Use descriptive names for machines
 2. Add descriptions for better organization
 3. Regular exports for backup
 4. Customize RDP settings for specific needs
+5. Share configurations with team members
+6. Keep shared configurations organized
+7. Review and update machine settings periodically
+
+### Troubleshooting Common Issues
+1. **Connection Problems**
+   - Verify machine name
+   - Check network connectivity
+   - Confirm RDP port access
+
+2. **Sharing Issues**
+   - Verify file permissions
+   - Check configuration completeness
+   - Ensure compatible settings
+
+3. **Settings Issues**
+   - Clear application cache
+   - Verify write permissions
+   - Check available disk space
+
+*For additional support, consult the full documentation or contact support.*
 """
         ]
         
-        # Write chunks to file
+        # Write markdown file
         with open(md_path, 'w', encoding='utf-8') as f:
             for i, chunk in enumerate(chunks, 1):
                 f.write(chunk)
-                f.flush()  # Ensure content is written
+                f.flush()
                 print(f"Chunk {i} written")
-                
-        # Verify each chunk
-        with open(md_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            print("\nVerifying content:")
-            print(f"Total characters: {len(content)}")
-            print(f"Total lines: {len(content.splitlines())}")
-            
+        
         print("\nGuide created successfully!")
             
     except Exception as e:
