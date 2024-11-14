@@ -10,6 +10,7 @@ import sys
 import json
 import csv
 import shutil
+from styles import MenuStyle  # Add this import at the top
 
 THEMES = {
     "dark": {
@@ -597,10 +598,26 @@ class VMManagerUI:
     def __init__(self, vm_manager):
         self.vm_manager = vm_manager
         self.root = tk.Tk()
+        self.root.title("VM Manager")
+        
+        # Initialize theme-related attributes
+        self.current_theme = "dark"  # default theme
+        self.current_filter = None
+        
+        # Get theme colors
+        theme = THEMES[self.current_theme]
+        self.primary_bg_color = theme["primary_bg"]
+        self.secondary_bg_color = theme["secondary_bg"]
+        self.button_bg_color = theme["button_bg"]
+        self.text_color = theme["text"]
+        self.hover_active_color = theme["hover_active"]
+        self.border_color = theme["borders"]
+        
+        # Rest of your initialization code...
+        
         # Set the root reference in VMManager
         self.vm_manager.root = self.root  # Add this line
         
-        self.root.title("")
         self.root.geometry("1000x600")
         
         # Load saved theme or use default
@@ -626,7 +643,6 @@ class VMManagerUI:
         self.connection_indicators = {}
         self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None}
         self.dragging = False  # Add this flag to track drag state
-        self.current_filter = None  # Add this to track current category filter
 
     def setup_ui(self):
         # Create header
@@ -1074,22 +1090,21 @@ class VMManagerUI:
         self.vm_manager.machine_status[pc_name] = is_running
 
     def toggle_theme(self):
-        current_theme = "light" if self.primary_bg_color == THEMES["dark"]["primary_bg"] else "dark"
-        theme = THEMES[current_theme]
+        """Toggle between light and dark theme"""
+        self.current_theme = "light" if self.current_theme == "dark" else "dark"
+        theme = THEMES[self.current_theme]
         
-        # Update colors
+        # Update all theme colors
         self.primary_bg_color = theme["primary_bg"]
         self.secondary_bg_color = theme["secondary_bg"]
         self.button_bg_color = theme["button_bg"]
-        self.header_bg_color = theme["header_bg"]
         self.text_color = theme["text"]
         self.hover_active_color = theme["hover_active"]
-        self.borders_and_dividers_color = theme["borders"]
+        self.border_color = theme["borders"]
+        self.header_bg_color = theme["header_bg"]  # Make sure to update header bg color
         
-        # Update UI elements
-        self.root.configure(bg=self.primary_bg_color)
+        # Update all UI elements with new colors
         self.update_theme_colors()
-        self.position_buttons()
 
     def update_theme_colors(self):
         """Update all UI elements with current theme colors"""
@@ -1098,7 +1113,7 @@ class VMManagerUI:
         self.header_container.configure(bg=self.header_bg_color)
         self.title_label.configure(bg=self.header_bg_color, fg=self.text_color)
         self.theme_switch.configure(bg=self.header_bg_color)
-        self.underline_frame.configure(bg=self.borders_and_dividers_color)
+        self.underline_frame.configure(bg=self.border_color)
         
         # Update main sidebar frame
         self.left_frame.configure(bg=self.secondary_bg_color)
@@ -1182,7 +1197,7 @@ class VMManagerUI:
 
         # Update the border frame color to match the theme
         if hasattr(self, 'border_frame'):
-            self.border_frame.configure(bg=self.borders_and_dividers_color)  # This will use #B4D8F0 in light theme
+            self.border_frame.configure(bg=self.border_color)  # This will use #B4D8F0 in light theme
 
     def update_rdp_path(self):
         result = messagebox.askyesno(
@@ -1215,51 +1230,131 @@ class VMManagerUI:
                 self.vm_manager.add_pc(pc.strip())
             self.multi_pc_text.delete("1.0", tk.END)
             self.position_buttons()
-
     def on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def show_context_menu(self, event, pc_name):
         """Show context menu for PC button"""
+        # Get themed menu style based on current theme
+        menu_style = {
+            'font': ('Segoe UI', 11),
+            'foreground': '#FFFFFF' if self.current_theme in ["dark", "blue_dark"] else '#2B4B6F',
+            'activeforeground': '#D1B278' if self.current_theme in ["dark", "blue_dark"] else '#1a365d',
+            'background': '#133951' if self.current_theme in ["dark", "blue_dark"] else '#F0F7FF',
+            'activebackground': '#274156' if self.current_theme in ["dark", "blue_dark"] else '#CCE8FF',
+        }
+        
         context_menu = tk.Menu(self.root, tearoff=0)
+        context_menu.configure(**menu_style)
         
-        # Add sharing submenu
+        # Add sharing submenu with styling
         share_menu = tk.Menu(context_menu, tearoff=0)
-        share_menu.add_command(label="Share via Teams", 
-            command=lambda: self.vm_manager.share_via_teams(pc_name))
-        share_menu.add_command(label="Copy Share Link", 
-            command=lambda: self.handle_copy_share_link(pc_name))
+        share_menu.configure(**menu_style, activeborderwidth=0)  # Smoother submenu appearance
         
-        context_menu.add_cascade(label="Share", menu=share_menu)
+        share_menu.add_command(
+            label="  💬  Share via Teams", 
+            command=lambda: self.vm_manager.share_via_teams(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            activeforeground=menu_style['activeforeground'],
+            background=menu_style['background'],
+            activebackground=menu_style['activebackground']
+        )
         
-        # Add category submenu
+        share_menu.add_command(
+            label="  📋  Copy Share Link", 
+            command=lambda: self.handle_copy_share_link(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            activeforeground=menu_style['activeforeground'],
+            background=menu_style['background'],
+            activebackground=menu_style['activebackground']
+        )
+        
+        context_menu.add_cascade(
+            label="  📤  Share",
+            menu=share_menu,
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            background=menu_style['background']
+        )
+        
+        # Add category submenu with styling
         category_menu = tk.Menu(context_menu, tearoff=0)
+        category_menu.configure(**menu_style)
         
         # Add option to remove category
         current_category = self.vm_manager.get_machine_category(pc_name)
         if current_category and current_category != "Default":
             context_menu.add_command(
-                label=f"Remove from '{current_category}'",
-                command=lambda: self.remove_machine_category(pc_name)
+                label=f"  🗑️  Remove from '{current_category}'",
+                command=lambda: self.remove_machine_category(pc_name),
+                font=menu_style['font'],
+                foreground=menu_style['foreground'],
+                activeforeground=menu_style['activeforeground'],
+                background=menu_style['background'],
+                activebackground=menu_style['activebackground']
             )
         
         # Add categories submenu
         for category in self.vm_manager.categories:
-            if category != "Default":  # Skip Default as it's not an assignable category
+            if category != "Default":
                 category_menu.add_command(
-                    label=category,
-                    command=lambda c=category: self.set_machine_category(pc_name, c)
+                    label=f"  📁  {category}",
+                    command=lambda c=category: self.set_machine_category(pc_name, c),
+                    font=menu_style['font'],
+                    foreground=menu_style['foreground'],
+                    activeforeground=menu_style['activeforeground'],
+                    background=menu_style['background'],
+                    activebackground=menu_style['activebackground']
                 )
         
-        context_menu.add_cascade(label="Set Category", menu=category_menu)
+        context_menu.add_cascade(
+            label="  📂  Set Category",
+            menu=category_menu,
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            background=menu_style['background']
+        )
         
         # Add other menu items
         context_menu.add_separator()
-        context_menu.add_command(label="Set RDP Path", command=lambda: self.set_rdp_path(pc_name))
-        context_menu.add_command(label="Edit Description", command=lambda: self.edit_description(pc_name))
-        context_menu.add_command(label="Delete", command=lambda: self.delete_pc(pc_name))
         
-        context_menu.tk_popup(event.x_root, event.y_root)
+        context_menu.add_command(
+            label="  🔗  Set RDP Path",
+            command=lambda: self.set_rdp_path(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            activeforeground=menu_style['activeforeground'],
+            background=menu_style['background'],
+            activebackground=menu_style['activebackground']
+        )
+        
+        context_menu.add_command(
+            label="  ✏️  Edit Description",
+            command=lambda: self.edit_description(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['foreground'],
+            activeforeground=menu_style['activeforeground'],
+            background=menu_style['background'],
+            activebackground=menu_style['activebackground']
+        )
+        
+        # Delete option with warning styling
+        context_menu.add_command(
+            label="  ⚠️  Delete",
+            command=lambda: self.delete_pc(pc_name),
+            font=('Segoe UI', 11, 'bold'),
+            foreground='#dc3545',
+            activeforeground='#dc3545',
+            background=menu_style['background'],
+            activebackground='#ffebee'
+        )
+        
+        try:
+            context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            context_menu.grab_release()
 
     def handle_copy_share_link(self, pc_name):
         """Handle copying share link to clipboard"""
@@ -1827,7 +1922,10 @@ class VMManagerUI:
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
-        super().__init__(parent, width=60, height=30, bg=THEMES["dark"]["header_bg"], highlightthickness=0)
+        # Initialize with the correct theme's header color
+        super().__init__(parent, width=60, height=30, 
+                        bg=THEMES[current_theme]["header_bg"], 
+                        highlightthickness=0)
         self.command = command
         
         # Initialize switch state based on provided theme
@@ -1864,6 +1962,8 @@ class ThemeSwitch(tk.Canvas):
         # Set background and switch button color based on the theme
         new_bg_color = self.active_bg_color if self.switch_on else self.inactive_bg_color
         new_button_color = self.switch_color_on if self.switch_on else self.switch_color_off
+        
+        # Update the header background color based on the current theme
         self.configure(bg=THEMES[current_theme]["header_bg"])
         
         # Animate the toggle switch
