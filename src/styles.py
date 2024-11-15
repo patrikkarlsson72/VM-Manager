@@ -28,6 +28,15 @@ class MenuStyle:
         'pady': 8
     }
 
+    TAG_BUTTON_STYLE = {
+        'font': ('Segoe UI', 11),
+        'anchor': 'w',
+        'padx': 10,
+        'pady': 5,
+        'bd': 0,
+        'cursor': 'hand2'
+    }
+
     @staticmethod
     def get_themed_menu_style(theme):
         """Get menu style based on current theme"""
@@ -52,4 +61,24 @@ class MenuStyle:
                 'relief': tk.SOLID,
                 'borderwidth': 1,
                 'selectcolor': '#7AB8E0'
+            }
+
+    @staticmethod
+    def get_tag_style(theme):
+        """Get tag style based on current theme"""
+        if theme in ["dark", "blue_dark"]:
+            return {
+                **MenuStyle.TAG_BUTTON_STYLE,
+                'bg': '#133951',
+                'fg': '#FFFFFF',
+                'activebackground': '#274156',
+                'activeforeground': '#D1B278'
+            }
+        else:
+            return {
+                **MenuStyle.TAG_BUTTON_STYLE,
+                'bg': '#F0F7FF',
+                'fg': '#2B4B6F',
+                'activebackground': '#CCE8FF',
+                'activeforeground': '#1a365d'
             }

@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font as tkfont  # Add this import
 from tkinter import simpledialog, messagebox, filedialog, ttk, colorchooser
 import subprocess
 import os
@@ -100,6 +101,8 @@ class FileManager:
         self.machine_rdp_file_path = os.path.join(self.data_dir, "machine_rdp.txt")
         self.categories_file_path = os.path.join(self.data_dir, "categories.txt")
         self.machine_categories_file_path = os.path.join(self.data_dir, "machine_categories.txt")
+        self.tags_file_path = os.path.join(self.data_dir, "tags.txt")
+        self.machine_tags_file_path = os.path.join(self.data_dir, "machine_tags.txt")
 
     def _get_data_directory(self):
         default_data_dir = os.path.join(os.getenv("LOCALAPPDATA"), "VmManager")
@@ -209,6 +212,35 @@ class FileManager:
             for machine, category in machine_categories.items():
                 file.write(f"{machine}:{category}\n")
 
+    def load_tags(self):
+        """Load all existing tags"""
+        if os.path.exists(self.tags_file_path):
+            with open(self.tags_file_path, "r") as file:
+                return [line.strip() for line in file.readlines()]
+        return []
+
+    def save_tags(self, tags):
+        """Save all tags"""
+        with open(self.tags_file_path, "w") as file:
+            for tag in tags:
+                file.write(f"{tag}\n")
+
+    def load_machine_tags(self):
+        """Load machine-tag assignments"""
+        machine_tags = {}
+        if os.path.exists(self.machine_tags_file_path):
+            with open(self.machine_tags_file_path, "r") as file:
+                for line in file:
+                    machine, tags = line.strip().split(":", 1)
+                    machine_tags[machine] = tags.split(",") if tags else []
+        return machine_tags
+
+    def save_machine_tags(self, machine_tags):
+        """Save machine-tag assignments"""
+        with open(self.machine_tags_file_path, "w") as file:
+            for machine, tags in machine_tags.items():
+                file.write(f"{machine}:{','.join(tags)}\n")
+
     # ... other file operations ...
 
 class SettingsManager:
@@ -267,6 +299,8 @@ class VMManager:
         self.categories = self.file_manager.load_categories()
         self.machine_categories = self.file_manager.load_machine_categories()
         self.cleanup_temp_rdp_files()  # Clean up old temporary RDP files
+        self.tags = self.file_manager.load_tags()
+        self.machine_tags = self.file_manager.load_machine_tags()
 
     def connect_to_pc(self, pc_name):
         """Connect to a PC and track the connection"""
@@ -593,6 +627,59 @@ class VMManager:
             except Exception as e:
                 print(f"Error cleaning up temporary RDP files: {str(e)}")
 
+    def get_machine_tags(self, pc_name):
+        """Get all tags for a machine"""
+        return self.machine_tags.get(pc_name, [])
+
+    def add_tag(self, tag_name):
+        """Add a new tag"""
+        if tag_name and tag_name not in self.tags:
+            self.tags.append(tag_name)
+            self.file_manager.save_tags(self.tags)
+            return True
+        return False
+
+    def delete_tag(self, tag_name):
+        """Delete a tag and remove it from all machines"""
+        if tag_name in self.tags:
+            self.tags.remove(tag_name)
+            # Remove tag from all machines
+            for machine in self.machine_tags:
+                if tag_name in self.machine_tags[machine]:
+                    self.machine_tags[machine].remove(tag_name)
+            self.file_manager.save_tags(self.tags)
+            self.file_manager.save_machine_tags(self.machine_tags)
+            return True
+        return False
+
+    def add_machine_tag(self, machine_name, tag_name):
+        """Add a tag to a machine"""
+        if tag_name not in self.tags:
+            return False
+        
+        if machine_name not in self.machine_tags:
+            self.machine_tags[machine_name] = []
+            
+        if tag_name not in self.machine_tags[machine_name]:
+            self.machine_tags[machine_name].append(tag_name)
+            self.file_manager.save_machine_tags(self.machine_tags)
+            return True
+        return False
+
+    def remove_machine_tag(self, machine_name, tag_name):
+        """Remove a tag from a machine"""
+        if (machine_name in self.machine_tags and 
+            tag_name in self.machine_tags[machine_name]):
+            self.machine_tags[machine_name].remove(tag_name)
+            self.file_manager.save_machine_tags(self.machine_tags)
+            return True
+        return False
+
+    def get_machines_by_tag(self, tag_name):
+        """Get all machines with a specific tag"""
+        return [machine for machine, tags in self.machine_tags.items() 
+                if tag_name in tags and machine in self.pc_names]
+
 class VMManagerUI:
     """Main application UI"""
     def __init__(self, vm_manager):
@@ -603,6 +690,7 @@ class VMManagerUI:
         # Initialize theme-related attributes
         self.current_theme = "dark"  # default theme
         self.current_filter = None
+        self.current_tag_filter = None
         
         # Get theme colors
         theme = THEMES[self.current_theme]
@@ -763,6 +851,139 @@ class VMManagerUI:
             fg=self.text_color
         )
         multi_pc_btn.pack(pady=5, padx=10, fill="x")
+
+        # Add Tag Section after Categories
+        self.create_tag_section()
+
+    def create_tag_section(self):
+        """Create the tag filter section in sidebar"""
+        # Tag Frame
+        tag_frame = tk.Frame(
+            self.left_frame,
+            bg=self.secondary_bg_color
+        )
+        tag_frame.pack(pady=10, padx=10, fill="x")
+
+        # Header frame for label and add button
+        self.tag_header_frame = tk.Frame(tag_frame, bg=self.header_bg_color)  # Changed bg color
+        self.tag_header_frame.pack(fill="x", pady=(0, 5))
+
+        # Tags Label
+        self.tags_label = tk.Label(
+            self.tag_header_frame,  # Changed parent to header frame
+            text="Filter by Tags",
+            bg=self.header_bg_color,  # Changed bg color
+            fg=self.text_color,
+            font=('Helvetica', 14, 'bold')
+        )
+        self.tags_label.pack(side="left", anchor="w")
+
+        # Add Tag Button
+        add_tag_btn = tk.Button(
+            self.tag_header_frame,
+            text="+",
+            command=lambda: self.show_tag_manager(),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12),
+            width=3,
+            cursor="hand2"
+        )
+        add_tag_btn.pack(side="right", padx=5)
+
+        # Container for tag filters
+        self.tag_filters_container = tk.Frame(
+            tag_frame,
+            bg=self.secondary_bg_color
+        )
+        self.tag_filters_container.pack(fill="x", padx=5, pady=5)
+
+        # Update tag filters
+        self.update_tag_filters()
+
+    def update_tag_filters(self):
+        """Update the tag filter buttons display"""
+        # Clear existing filters
+        for widget in self.tag_filters_container.winfo_children():
+            widget.destroy()
+
+        menu_style = MenuStyle.get_themed_menu_style(self.current_theme)
+
+        # Create button for "All Tags" (reset filter)
+        all_tags_btn = tk.Button(
+            self.tag_filters_container,
+            text="🏷️ All Machines",
+            command=self.reset_tag_filter,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=menu_style['font'],
+            bd=0,
+            anchor="w",
+            padx=10,
+            cursor="hand2"
+        )
+        all_tags_btn.pack(fill="x", pady=2)
+
+        # Create button for each tag
+        for tag in self.vm_manager.tags:
+            initial_bg = self.hover_active_color if (hasattr(self, 'current_tag_filter') and self.current_tag_filter == tag) else self.secondary_bg_color
+            
+            btn = tk.Button(
+                self.tag_filters_container,
+                text=f"🏷️ {tag}",
+                command=lambda t=tag: self.filter_by_tag(t),
+                bg=initial_bg,
+                fg=self.text_color,
+                font=menu_style['font'],
+                bd=0,
+                anchor="w",
+                padx=10,
+                cursor="hand2"
+            )
+            btn.pack(fill="x", pady=2)
+
+            # Store tag name as attribute
+            btn.tag = tag
+
+            # Bind hover effects
+            btn.bind('<Enter>', lambda e, b=btn: self.on_tag_button_hover(b))
+            btn.bind('<Leave>', lambda e, b=btn: self.on_tag_button_leave(b))
+
+    def on_tag_button_hover(self, button):
+        """Handle tag button hover"""
+        if not hasattr(self, 'current_tag_filter') or button.tag != self.current_tag_filter:
+            button.configure(bg=self.hover_active_color)
+
+    def on_tag_button_leave(self, button):
+        """Handle tag button mouse leave"""
+        if not hasattr(self, 'current_tag_filter') or button.tag != self.current_tag_filter:
+            button.configure(bg=self.secondary_bg_color)
+        else:
+            button.configure(bg=self.hover_active_color)
+
+    def filter_by_tag(self, tag_name):
+        """Filter machines by tag"""
+        self.current_tag_filter = tag_name
+        filtered_pcs = self.vm_manager.get_machines_by_tag(tag_name)
+        self.position_buttons(filtered_pcs)
+        
+        # Update all tag button colors
+        for btn in self.tag_filters_container.winfo_children():
+            if hasattr(btn, 'tag'):
+                if btn.tag == tag_name:
+                    btn.configure(bg=self.hover_active_color)
+                else:
+                    btn.configure(bg=self.secondary_bg_color)
+
+    def reset_tag_filter(self):
+        """Reset tag filter to show all machines"""
+        if hasattr(self, 'current_tag_filter'):
+            delattr(self, 'current_tag_filter')
+        self.position_buttons()
+        
+        # Reset all button colors
+        for btn in self.tag_filters_container.winfo_children():
+            btn.configure(bg=self.secondary_bg_color)
 
     def show_multi_pc_dialog(self):
         """Show dialog for adding multiple PCs"""
@@ -1005,15 +1226,15 @@ class VMManagerUI:
             tags=(button_tag, "button")
         )
 
-        # Calculate text positions
-        text_y = y + (height * 0.25)
-        last_used_y = y + (height * 0.6)
-        description_y = y + (height * 0.8)
+        # Calculate vertical positions
         center_x = x + (width / 2)
-
-        # Create text elements with the same button tag
+        title_y = y + (height * 0.25)  # Title at 25% from top
+        last_used_y = y + (height * 0.45)  # Last used at 45% from top
+        description_y = y + (height * 0.65)  # Description at 65% from top
+        
+        # Create text elements
         title_text = self.canvas.create_text(
-            center_x, text_y,
+            center_x, title_y,
             text=text,
             fill=self.text_color,
             font=('Helvetica', title_font_size, 'bold'),
@@ -1038,6 +1259,37 @@ class VMManagerUI:
                 fill=self.text_color,
                 font=('Helvetica', status_font_size),
                 anchor="center",
+                tags=(button_tag, "button")
+            )
+
+        # Add tags display
+        tags = self.vm_manager.get_machine_tags(text)
+        if tags:
+            # Calculate maximum width for tags (slightly less than button width)
+            max_tag_width = width * 0.9  # 90% of button width
+            
+            # Create font object for measuring
+            tag_font = tkfont.Font(family='Helvetica', size=status_font_size)
+            
+            # Create the full tags text
+            tags_text = "🏷️ " + ", ".join(tags)
+            
+            # Truncate tags text if it's too long
+            while tag_font.measure(tags_text) > max_tag_width:
+                # Remove the last tag and add ellipsis
+                tags = tags[:-1]
+                if not tags:
+                    tags_text = "🏷️ ..."
+                    break
+                tags_text = "🏷️ " + ", ".join(tags) + "..."
+            
+            self.canvas.create_text(
+                center_x, y + (height * 0.85),
+                text=tags_text,
+                fill=self.text_color,
+                font=('Helvetica', status_font_size),
+                anchor="center",
+                width=max_tag_width,  # Set maximum width
                 tags=(button_tag, "button")
             )
 
@@ -1074,11 +1326,17 @@ class VMManagerUI:
                 daemon=True
             ).start()
         
-        # Update UI with current filter
-        if self.current_filter:
+        # Store current filter state
+        if hasattr(self, 'current_tag_filter') and self.current_tag_filter:
+            # If there's a tag filter active, maintain it
+            filtered_pcs = self.vm_manager.get_machines_by_tag(self.current_tag_filter)
+            self.position_buttons(filtered_pcs)
+        elif hasattr(self, 'current_filter') and self.current_filter:
+            # If there's a category filter active, maintain it
             filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
             self.position_buttons(filtered_pcs)
         else:
+            # No filter active, show all machines
             self.position_buttons()
             
         # Schedule next update
@@ -1112,7 +1370,11 @@ class VMManagerUI:
         self.header_frame.configure(bg=self.header_bg_color)
         self.header_container.configure(bg=self.header_bg_color)
         self.title_label.configure(bg=self.header_bg_color, fg=self.text_color)
-        self.theme_switch.configure(bg=self.header_bg_color)
+        
+        # Update theme switch button if it exists
+        if hasattr(self, 'theme_button'):  # Change 'theme_switch' to 'theme_button'
+            self.theme_button.configure(bg=self.header_bg_color)
+        
         self.underline_frame.configure(bg=self.border_color)
         
         # Update main sidebar frame
@@ -1199,13 +1461,36 @@ class VMManagerUI:
         if hasattr(self, 'border_frame'):
             self.border_frame.configure(bg=self.border_color)  # This will use #B4D8F0 in light theme
 
+        # Update tag section header
+        if hasattr(self, 'tag_header_frame'):
+            self.tag_header_frame.configure(bg=self.header_bg_color)
+            self.tags_label.configure(
+                bg=self.header_bg_color,
+                fg=self.text_color
+            )
+
+        # Update tag buttons
+        if hasattr(self, 'tag_filters_container'):
+            self.tag_filters_container.configure(bg=self.secondary_bg_color)
+            for btn in self.tag_filters_container.winfo_children():
+                if isinstance(btn, tk.Button):
+                    if hasattr(self, 'current_tag_filter') and hasattr(btn, 'tag') and btn.tag == self.current_tag_filter:
+                        btn.configure(
+                            bg=self.hover_active_color,
+                            fg=self.text_color
+                        )
+                    else:
+                        btn.configure(
+                            bg=self.secondary_bg_color,
+                            fg=self.text_color
+                        )
+
     def update_rdp_path(self):
         result = messagebox.askyesno(
             "Update RDP Path",
             "Do you want to change the default RDP file path?",
             icon='question'
         )
-        
         if result:
             rdp_path = filedialog.askopenfilename(
                 title="Select RDP File",
@@ -1235,88 +1520,108 @@ class VMManagerUI:
 
     def show_context_menu(self, event, pc_name):
         """Show context menu for PC button"""
-        # Get themed menu style based on current theme
-        menu_style = {
-            'font': ('Segoe UI', 11),
-            'foreground': '#FFFFFF' if self.current_theme in ["dark", "blue_dark"] else '#2B4B6F',
-            'activeforeground': '#D1B278' if self.current_theme in ["dark", "blue_dark"] else '#1a365d',
-            'background': '#133951' if self.current_theme in ["dark", "blue_dark"] else '#F0F7FF',
-            'activebackground': '#274156' if self.current_theme in ["dark", "blue_dark"] else '#CCE8FF',
-        }
+        menu_style = MenuStyle.get_themed_menu_style(self.current_theme)
         
         context_menu = tk.Menu(self.root, tearoff=0)
         context_menu.configure(**menu_style)
         
-        # Add sharing submenu with styling
-        share_menu = tk.Menu(context_menu, tearoff=0)
-        share_menu.configure(**menu_style, activeborderwidth=0)  # Smoother submenu appearance
-        
-        share_menu.add_command(
-            label="  💬  Share via Teams", 
-            command=lambda: self.vm_manager.share_via_teams(pc_name),
-            font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            activeforeground=menu_style['activeforeground'],
-            background=menu_style['background'],
-            activebackground=menu_style['activebackground']
-        )
-        
-        share_menu.add_command(
-            label="  📋  Copy Share Link", 
-            command=lambda: self.handle_copy_share_link(pc_name),
-            font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            activeforeground=menu_style['activeforeground'],
-            background=menu_style['background'],
-            activebackground=menu_style['activebackground']
-        )
-        
-        context_menu.add_cascade(
-            label="  📤  Share",
-            menu=share_menu,
-            font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            background=menu_style['background']
-        )
-        
-        # Add category submenu with styling
+        # Category submenu
         category_menu = tk.Menu(context_menu, tearoff=0)
         category_menu.configure(**menu_style)
         
-        # Add option to remove category
-        current_category = self.vm_manager.get_machine_category(pc_name)
-        if current_category and current_category != "Default":
-            context_menu.add_command(
-                label=f"  🗑️  Remove from '{current_category}'",
-                command=lambda: self.remove_machine_category(pc_name),
-                font=menu_style['font'],
-                foreground=menu_style['foreground'],
-                activeforeground=menu_style['activeforeground'],
-                background=menu_style['background'],
-                activebackground=menu_style['activebackground']
-            )
-        
-        # Add categories submenu
+        # Add categories to submenu
         for category in self.vm_manager.categories:
             if category != "Default":
                 category_menu.add_command(
                     label=f"  📁  {category}",
                     command=lambda c=category: self.set_machine_category(pc_name, c),
                     font=menu_style['font'],
-                    foreground=menu_style['foreground'],
-                    activeforeground=menu_style['activeforeground'],
-                    background=menu_style['background'],
-                    activebackground=menu_style['activebackground']
+                    foreground=menu_style['fg'],
+                    background=menu_style['bg']
                 )
         
         context_menu.add_cascade(
             label="  📂  Set Category",
             menu=category_menu,
             font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            background=menu_style['background']
+            foreground=menu_style['fg']
+        )
+
+        # Add option to remove category if machine has one
+        current_category = self.vm_manager.get_machine_category(pc_name)
+        if current_category and current_category != "Default":
+            context_menu.add_command(
+                label=f"  🗑️  Remove from '{current_category}'",
+                command=lambda: self.remove_machine_category(pc_name),
+                font=menu_style['font'],
+                foreground=menu_style['fg']
+            )
+
+        # Tags submenu (moved up, right after categories)
+        tags_menu = tk.Menu(context_menu, tearoff=0)
+        tags_menu.configure(**menu_style)
+        
+        # Add "Manage Tags" option
+        tags_menu.add_command(
+            label="  ✨  Manage Tags",
+            command=lambda: self.show_tag_manager(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['fg'],
+            background=menu_style['bg']
         )
         
+        tags_menu.add_separator()
+        
+        # Add existing tags
+        machine_tags = self.vm_manager.get_machine_tags(pc_name)
+        for tag in self.vm_manager.tags:
+            tags_menu.add_checkbutton(
+                label=f"  🏷️  {tag}",
+                command=lambda t=tag: self.toggle_machine_tag(pc_name, t),
+                onvalue=1,
+                offvalue=0,
+                variable=tk.BooleanVar(value=tag in machine_tags),
+                font=menu_style['font'],
+                foreground=menu_style['fg'],
+                background=menu_style['bg']
+            )
+        
+        context_menu.add_cascade(
+            label="  🏷️  Tags",
+            menu=tags_menu,
+            font=menu_style['font'],
+            foreground=menu_style['fg']
+        )
+
+        context_menu.add_separator()
+
+        # Share submenu
+        share_menu = tk.Menu(context_menu, tearoff=0)
+        share_menu.configure(**menu_style)
+        
+        share_menu.add_command(
+            label="  💬  Share via Teams",
+            command=lambda: self.vm_manager.share_via_teams(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['fg'],
+            background=menu_style['bg']
+        )
+        
+        share_menu.add_command(
+            label="  📋  Copy Share Link",
+            command=lambda: self.handle_copy_share_link(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['fg'],
+            background=menu_style['bg']
+        )
+        
+        context_menu.add_cascade(
+            label="  📤  Share",
+            menu=share_menu,
+            font=menu_style['font'],
+            foreground=menu_style['fg']
+        )
+
         # Add other menu items
         context_menu.add_separator()
         
@@ -1324,20 +1629,16 @@ class VMManagerUI:
             label="  🔗  Set RDP Path",
             command=lambda: self.set_rdp_path(pc_name),
             font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            activeforeground=menu_style['activeforeground'],
-            background=menu_style['background'],
-            activebackground=menu_style['activebackground']
+            foreground=menu_style['fg'],
+            background=menu_style['bg']
         )
         
         context_menu.add_command(
             label="  ✏️  Edit Description",
             command=lambda: self.edit_description(pc_name),
             font=menu_style['font'],
-            foreground=menu_style['foreground'],
-            activeforeground=menu_style['activeforeground'],
-            background=menu_style['background'],
-            activebackground=menu_style['activebackground']
+            foreground=menu_style['fg'],
+            background=menu_style['bg']
         )
         
         # Delete option with warning styling
@@ -1346,9 +1647,7 @@ class VMManagerUI:
             command=lambda: self.delete_pc(pc_name),
             font=('Segoe UI', 11, 'bold'),
             foreground='#dc3545',
-            activeforeground='#dc3545',
-            background=menu_style['background'],
-            activebackground='#ffebee'
+            background=menu_style['bg']
         )
         
         try:
@@ -1658,8 +1957,8 @@ class VMManagerUI:
                             self.vm_manager.descriptions.get(pc, ""),
                             self.vm_manager.last_used_times.get(pc, "Never"),
                             self.vm_manager.machine_rdp_paths.get(pc, "Default")
-                        ])
-                
+                        ])  # Added missing closing bracket here
+            
                 messagebox.showinfo("Success", "Machine list exported successfully!")
                 
             except Exception as e:
@@ -1919,6 +2218,98 @@ class VMManagerUI:
                 # If current filter is the deleted category, switch to Default
                 if self.current_filter == category:
                     self.filter_by_category("Default")
+
+    def show_tag_manager(self, pc_name=None):
+        """Show dialog for managing tags"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Tag Manager")
+        dialog.geometry("400x500")
+        dialog.configure(bg=self.primary_bg_color)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Create frames
+        top_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        top_frame.pack(fill='x', padx=20, pady=10)
+
+        # Add new tag entry
+        entry = tk.Entry(top_frame, bg=self.secondary_bg_color, fg=self.text_color)
+        entry.pack(side='left', expand=True, fill='x', padx=(0, 10))
+
+        add_btn = tk.Button(
+            top_frame,
+            text="Add Tag",
+            command=lambda: self.add_new_tag(entry, listbox),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        )
+        add_btn.pack(side='right')
+
+        # Tags listbox
+        listbox = tk.Listbox(
+            dialog,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            selectmode='single',
+            height=15
+        )
+        listbox.pack(fill='both', expand=True, padx=20, pady=10)
+
+        # Populate listbox
+        for tag in self.vm_manager.tags:
+            listbox.insert('end', tag)
+
+        # Buttons frame
+        btn_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        btn_frame.pack(fill='x', padx=20, pady=10)
+
+        # Delete button
+        tk.Button(
+            btn_frame,
+            text="Delete Selected",
+            command=lambda: self.delete_selected_tag(listbox),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(side='left', padx=5)
+
+        # Close button
+        tk.Button(
+            btn_frame,
+            text="Close",
+            command=dialog.destroy,
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(side='right', padx=5)
+
+    def add_new_tag(self, entry, listbox):
+        """Add a new tag"""
+        tag_name = entry.get().strip()
+        if tag_name:
+            if self.vm_manager.add_tag(tag_name):
+                listbox.insert('end', tag_name)
+                entry.delete(0, 'end')
+            else:
+                messagebox.showwarning("Warning", "Tag already exists!")
+
+    def delete_selected_tag(self, listbox):
+        """Delete selected tag"""
+        selection = listbox.curselection()
+        if selection:
+            tag_name = listbox.get(selection[0])
+            if messagebox.askyesno("Confirm Delete", 
+                                  f"Are you sure you want to delete the tag '{tag_name}'?\n"
+                                  "It will be removed from all machines."):
+                if self.vm_manager.delete_tag(tag_name):
+                    listbox.delete(selection[0])
+
+    def toggle_machine_tag(self, pc_name, tag_name):
+        """Toggle tag for a machine"""
+        machine_tags = self.vm_manager.get_machine_tags(pc_name)
+        if tag_name in machine_tags:
+            self.vm_manager.remove_machine_tag(pc_name, tag_name)
+        else:
+            self.vm_manager.add_machine_tag(pc_name, tag_name)
+        self.position_buttons()  # Refresh display
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
