@@ -17,6 +17,7 @@ def create_guide():
 ## Table of Contents
 - [Initial Setup](#initial-setup)
 - [Adding Virtual Machines](#adding-virtual-machines)
+- [Managing Categories](#managing-categories)
 - [Connecting to Machines](#connecting-to-machines)
 - [Managing Machines](#managing-machines)
 - [Customizing Settings](#customizing-settings)
@@ -65,7 +66,42 @@ For batch additions:
 2. Click "Add PCs"
 3. All machines will be added to the main view
 """,
-            # Chunk 4: Connecting
+            # Chunk 4: Categories
+            """## Managing Categories
+
+### Creating and Managing Categories
+To organize your machines into categories:
+
+![Categories](images/categories.png)
+
+1. Click "Manage Categories" in the sidebar
+2. Add a new category:
+   - Click "Add Category"
+   - Enter category name
+   - Choose category color (optional)
+   - Click Save
+
+![Categories](images/set-categories.png)
+
+3. Assign machines to categories:
+   - Right-click any machine
+   - Select "Set Category"
+   - Choose from available categories
+4. Filter by category:
+   - Click category name in sidebar
+   - View only machines in that category
+   - Click "All Machines" to clear filter
+
+### Category Organization
+Tips for effective category management:
+
+1. Use clear, descriptive category names
+2. Assign colors for visual organization
+3. Categories can be nested (subcategories)
+4. Machines can belong to multiple categories
+5. Categories can be edited or deleted through the management panel
+""",
+            # Chunk 5: Connecting
             """## Connecting to Machines
 
 ### Basic Connection
@@ -87,7 +123,7 @@ To use a specific RDP configuration:
 3. Choose your custom RDP file
 4. Future connections will use this configuration
 """,
-            # Chunk 5: Managing
+            # Chunk 6: Managing
             """## Managing Machines
 
 ### Context Menu Options
@@ -110,7 +146,7 @@ To add a description:
 3. Enter your description
 4. Click OK
 """,
-            # Chunk 6: Settings
+            # Chunk 7: Settings
             """## Customizing Settings
 
 ### Settings Panel
@@ -160,7 +196,7 @@ To modify how often machine status is checked:
 
 *Tip: A longer interval reduces network traffic but makes status updates less frequent.*
 """,
-            # Chunk 7: Sharing
+            # Chunk 8: Sharing
             """## Sharing Machines
 
 ### Exporting Machine Configurations
@@ -198,7 +234,7 @@ To manage your shared machines:
 4. Remove old shared configurations
 5. Update sharing preferences
 """,
-            # Chunk 8: Tips and Troubleshooting
+            # Chunk 9: Tips and Troubleshooting
             """## Tips and Tricks
 
 ### Status Monitoring

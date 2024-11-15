@@ -3,6 +3,7 @@
 ## Table of Contents
 - [Initial Setup](#initial-setup)
 - [Adding Virtual Machines](#adding-virtual-machines)
+- [Managing Categories](#managing-categories)
 - [Connecting to Machines](#connecting-to-machines)
 - [Managing Machines](#managing-machines)
 - [Customizing Settings](#customizing-settings)
@@ -46,6 +47,39 @@ For batch additions:
 1. Enter machine names in the text area (one per line)
 2. Click "Add PCs"
 3. All machines will be added to the main view
+## Managing Categories
+
+### Creating and Managing Categories
+To organize your machines into categories:
+
+![Categories](images/categories.png)
+
+1. Click "Manage Categories" in the sidebar
+2. Add a new category:
+   - Click "Add Category"
+   - Enter category name
+   - Choose category color (optional)
+   - Click Save
+
+![Categories](images/set-categories.png)
+
+3. Assign machines to categories:
+   - Right-click any machine
+   - Select "Set Category"
+   - Choose from available categories
+4. Filter by category:
+   - Click category name in sidebar
+   - View only machines in that category
+   - Click "All Machines" to clear filter
+
+### Category Organization
+Tips for effective category management:
+
+1. Use clear, descriptive category names
+2. Assign colors for visual organization
+3. Categories can be nested (subcategories)
+4. Machines can belong to multiple categories
+5. Categories can be edited or deleted through the management panel
 ## Connecting to Machines
 
 ### Basic Connection
