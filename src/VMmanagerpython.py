@@ -699,8 +699,8 @@ class VMManagerUI:
         self.active_tag_filters = set()
         
         # Set window size
-        window_width = 1400
-        window_height = 900
+        window_width = 1000
+        window_height = 700
         
         # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
@@ -732,7 +732,7 @@ class VMManagerUI:
         # Set the root reference in VMManager
         self.vm_manager.root = self.root  # Add this line
         
-        self.root.geometry("1400x900")
+        self.root.geometry("1000x700")
         
         # Load saved theme or use default
         saved_theme = self.vm_manager.settings_manager.settings.get("theme", "dark")
@@ -920,6 +920,7 @@ class VMManagerUI:
         button_container = tk.Frame(
             tag_frame,
             bg=self.secondary_bg_color
+            
         )
         button_container.pack(fill="x", pady=(10, 0))
 
