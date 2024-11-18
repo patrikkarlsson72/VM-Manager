@@ -4,6 +4,7 @@
 - [Initial Setup](#initial-setup)
 - [Adding Virtual Machines](#adding-virtual-machines)
 - [Managing Categories](#managing-categories)
+- [Managing Tags](#managing-tags)
 - [Connecting to Machines](#connecting-to-machines)
 - [Managing Machines](#managing-machines)
 - [Customizing Settings](#customizing-settings)
@@ -80,6 +81,40 @@ Tips for effective category management:
 3. Categories can be nested (subcategories)
 4. Machines can belong to multiple categories
 5. Categories can be edited or deleted through the management panel
+## Managing Tags
+
+### Creating and Managing Tags
+To use the tagging system:
+
+![Tags](images/tags.png)
+
+1. Add tags:
+- Click "Manage Tags" in the sidebar
+- Enter new tag name in the input field
+- Click "Add Tag" or press Enter
+- Tags will appear in the list above
+
+2. Assign tags to machines:
+- Right-click any machine
+- Select "Tags"
+- Check the tag from the list to assign it. To remove a tag, click on it again.
+- Changes are saved automatically
+
+3. Filter by tags:
+- Click tags in the sidebar to filter
+- Select multiple tags to see machines with any of those tags
+- Click "Reset Filter" to clear all tag filters or click on the tag name in the sidebar
+
+### Tag Organization Tips
+1. Use consistent naming conventions
+2. Keep tags simple and descriptive
+3. Regular cleanup of unused tags
+4. Use tags alongside categories for better organization
+
+### Managing Existing Tags
+- View all tags in the tag manager
+- Delete tags using the × button next to each tag
+- Deleting a tag removes it from all machines
 ## Connecting to Machines
 
 ### Basic Connection

@@ -18,6 +18,7 @@ def create_guide():
 - [Initial Setup](#initial-setup)
 - [Adding Virtual Machines](#adding-virtual-machines)
 - [Managing Categories](#managing-categories)
+- [Managing Tags](#managing-tags)
 - [Connecting to Machines](#connecting-to-machines)
 - [Managing Machines](#managing-machines)
 - [Customizing Settings](#customizing-settings)
@@ -100,8 +101,45 @@ Tips for effective category management:
 3. Categories can be nested (subcategories)
 4. Machines can belong to multiple categories
 5. Categories can be edited or deleted through the management panel
+""",        
+            # Chunk 5: Tags
+            """## Managing Tags
+
+### Creating and Managing Tags
+To use the tagging system:
+
+![Tags](images/tags.png)
+
+1. Add tags:
+- Click "Manage Tags" in the sidebar
+- Enter new tag name in the input field
+- Click "Add Tag" or press Enter
+- Tags will appear in the list above
+
+2. Assign tags to machines:
+- Right-click any machine
+- Select "Tags"
+- Check the tag from the list to assign it. To remove a tag, click on it again.
+- Changes are saved automatically
+
+3. Filter by tags:
+- Click tags in the sidebar to filter
+- Select multiple tags to see machines with any of those tags
+- Click "Reset Filter" to clear all tag filters or click on the tag name in the sidebar
+
+### Tag Organization Tips
+1. Use consistent naming conventions
+2. Keep tags simple and descriptive
+3. Regular cleanup of unused tags
+4. Use tags alongside categories for better organization
+
+### Managing Existing Tags
+- View all tags in the tag manager
+- Delete tags using the × button next to each tag
+- Deleting a tag removes it from all machines
 """,
-            # Chunk 5: Connecting
+
+            # Chunk 6: Connecting
             """## Connecting to Machines
 
 ### Basic Connection
@@ -123,7 +161,7 @@ To use a specific RDP configuration:
 3. Choose your custom RDP file
 4. Future connections will use this configuration
 """,
-            # Chunk 6: Managing
+            # Chunk 7: Managing
             """## Managing Machines
 
 ### Context Menu Options
@@ -146,7 +184,7 @@ To add a description:
 3. Enter your description
 4. Click OK
 """,
-            # Chunk 7: Settings
+            # Chunk 8: Settings
             """## Customizing Settings
 
 ### Settings Panel
@@ -196,7 +234,7 @@ To modify how often machine status is checked:
 
 *Tip: A longer interval reduces network traffic but makes status updates less frequent.*
 """,
-            # Chunk 8: Sharing
+            # Chunk 9: Sharing
             """## Sharing Machines
 
 ### Exporting Machine Configurations
@@ -234,7 +272,7 @@ To manage your shared machines:
 4. Remove old shared configurations
 5. Update sharing preferences
 """,
-            # Chunk 9: Tips and Troubleshooting
+            # Chunk 10: Tips and Troubleshooting
             """## Tips and Tricks
 
 ### Status Monitoring

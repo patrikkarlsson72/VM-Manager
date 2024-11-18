@@ -1234,6 +1234,7 @@ class VMManagerUI:
             tags=(button_tag, "button", "button_bg")  # Add background-specific tag
         )
         # Status indicator circle (top right corner)
+        
         indicator_radius = min(width, height) * 0.05
         indicator_x = x + width - (indicator_radius * 2)
         indicator_y = y + (indicator_radius * 2)
@@ -1260,8 +1261,7 @@ class VMManagerUI:
             fill=self.text_color,
             font=('Helvetica', title_font_size, 'bold'),
             anchor="center",
-            tags=(button_tag, "button")
-        )
+            tags=(button_tag, "button"))
         last_used_text = self.canvas.create_text(
             center_x, last_used_y,
             text=f"Last Used: {last_used}",
@@ -1389,17 +1389,17 @@ class VMManagerUI:
                 daemon=True
             ).start()
         
-        # Store current filter state
-        if hasattr(self, 'current_tag_filter') and self.current_tag_filter:
-            # If there's a tag filter active, maintain it
-            filtered_pcs = self.vm_manager.get_machines_by_tag(self.current_tag_filter)
+        # Update display based on current filters
+        if self.active_tag_filters:
+            # If tag filters are active, show only machines with those tags
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
             self.position_buttons(filtered_pcs)
         elif hasattr(self, 'current_filter') and self.current_filter:
-            # If there's a category filter active, maintain it
+            # If category filter is active, maintain it
             filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
             self.position_buttons(filtered_pcs)
         else:
-            # No filter active, show all machines
+            # No filters active, show all machines
             self.position_buttons()
             
         # Schedule next update
@@ -2479,6 +2479,19 @@ class VMManagerUI:
                     padx=5,
                     cursor="hand2"
                 ).pack(side=tk.RIGHT)
+
+    def toggle_machine_tag(self, machine_name, tag):
+        """Toggle a tag on/off for a machine"""
+        current_tags = self.vm_manager.get_machine_tags(machine_name)
+        
+        if tag in current_tags:
+            # Remove tag
+            if self.vm_manager.remove_machine_tag(machine_name, tag):
+                self.position_buttons()  # Refresh display
+        else:
+            # Add tag
+            if self.vm_manager.add_machine_tag(machine_name, tag):
+                self.position_buttons()  # Refresh display
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
