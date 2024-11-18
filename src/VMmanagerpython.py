@@ -695,6 +695,24 @@ class VMManagerUI:
         self.root = tk.Tk()
         self.root.title("VM Manager")
         
+        # Initialize active_tag_filters as a set
+        self.active_tag_filters = set()
+        
+        # Set window size
+        window_width = 1400
+        window_height = 900
+        
+        # Get screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # Calculate position coordinates
+        center_x = int((screen_width - window_width) / 2)
+        center_y = int((screen_height - window_height) / 2)
+        
+        # Set window size and position
+        self.root.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
+        
         # Initialize theme-related attributes
         self.current_theme = "dark"  # default theme
         self.current_filter = None
@@ -714,7 +732,7 @@ class VMManagerUI:
         # Set the root reference in VMManager
         self.vm_manager.root = self.root  # Add this line
         
-        self.root.geometry("1000x600")
+        self.root.geometry("1400x900")
         
         # Load saved theme or use default
         saved_theme = self.vm_manager.settings_manager.settings.get("theme", "dark")
@@ -734,9 +752,6 @@ class VMManagerUI:
         
         self.root.configure(bg=self.primary_bg_color)
 
-        # Initialize active tag filters set
-        self.active_tag_filters = set()  # Add this line
-        
         self.setup_ui()
         self.running_indicators = {}
         self.connection_indicators = {}
@@ -888,11 +903,10 @@ class VMManagerUI:
             text="Filter by Tag",
             bg='#1a73e8',  # Match frame background
             fg='white',    # White text for better contrast
-            font=('Helvetica', 14, 'bold')
-        )
+            font=('Helvetica', 14, 'bold'))
         self.tags_label.pack(anchor="w", pady=5, padx=5)
 
-        # Container for tag filters
+        # Container for tag filters 
         self.tag_filters_container = tk.Frame(
             tag_frame,
             bg=self.secondary_bg_color
@@ -941,47 +955,59 @@ class VMManagerUI:
 
     def update_tag_filters(self):
         """Update the tag filter buttons display"""
-        # Clear existing filters
+        # Clear existing tag filters
         for widget in self.tag_filters_container.winfo_children():
             widget.destroy()
 
-        # If no tags exist, show message
-        if not self.vm_manager.tags:
-            no_tags_label = tk.Label(
-                self.tag_filters_container,
-                text="No tags created yet",
-                bg=self.secondary_bg_color,
-                fg='gray',
-                font=('Helvetica', 10, 'italic')
-            )
-            no_tags_label.pack(pady=5)
-            return
+        # Create a frame that will allow tags to wrap
+        wrap_frame = tk.Frame(
+            self.tag_filters_container,
+            #bg=self.primary_bg_color
+        )
+        wrap_frame.pack(fill="x", expand=True)
+        wrap_frame.grid_columnconfigure(0, weight=1)
 
-        # Create button for each tag
+        row = 0
+        col = 0
+        max_cols = 3  # Number of tags per row
+
+        # Fixed colors for tags - matching your website design
+        tag_bg_color = "#ffffff"  # White background for inactive tags
+        tag_border_color = "#dee2e6"  # Light gray border
+        tag_active_color = "#0d6efd"  # Bootstrap blue for active state
+        tag_text_color = "#000000"  # Black text for inactive
+        tag_active_text_color = "#ffffff"  # White text for active state
+
+        # Create a button for each tag
         for tag in self.vm_manager.tags:
-            # Set initial background color based on whether this tag is currently selected
-            initial_bg = self.hover_active_color if tag in self.active_tag_filters else self.secondary_bg_color
-            
             tag_btn = tk.Button(
-                self.tag_filters_container,
+                wrap_frame,
                 text=f"🏷️ {tag}",
                 command=lambda t=tag: self.filter_by_tag(t),
-                bg=initial_bg,
-                fg=self.text_color,
-                font=('Helvetica', 11),
-                bd=0,
-                anchor="w",
-                padx=10,
+                bg=tag_bg_color if tag not in self.active_tag_filters else tag_active_color,
+                fg=tag_text_color if tag not in self.active_tag_filters else tag_active_text_color,
+                font=('Helvetica', 9),
+                bd=1,
+                relief="solid",
+                padx=5,
+                pady=2,
                 cursor="hand2"
             )
-            tag_btn.pack(fill="x", pady=2)
-            
-            # Store tag name as an attribute
-            tag_btn.tag = tag
+            tag_btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
 
             # Bind hover effects
-            tag_btn.bind('<Enter>', lambda e, b=tag_btn: self.on_tag_button_hover(b))
-            tag_btn.bind('<Leave>', lambda e, b=tag_btn: self.on_tag_button_leave(b))
+            tag_btn.bind('<Enter>', 
+                lambda e, btn=tag_btn: btn.configure(bg=tag_active_color, fg=tag_active_text_color))
+            tag_btn.bind('<Leave>', 
+                lambda e, btn=tag_btn, t=tag: btn.configure(
+                    bg=tag_active_color if t in self.active_tag_filters else tag_bg_color,
+                    fg=tag_active_text_color if t in self.active_tag_filters else tag_text_color))
+
+            # Update row and column
+            col += 1
+            if col >= max_cols:
+                col = 0
+                row += 1
 
     def show_multi_pc_dialog(self):
         """Show dialog for adding multiple PCs"""
@@ -1530,8 +1556,7 @@ class VMManagerUI:
         if result:
             rdp_path = filedialog.askopenfilename(
                 title="Select RDP File",
-                filetypes=(("RDP Files", "*.rdp"), ("All Files", "*.*"))
-            )
+                filetypes=(("RDP Files", "*.rdp"), ("All Files", "*.*")))
             if rdp_path:
                 self.vm_manager.settings_manager.settings["rdp_path"] = rdp_path
                 self.vm_manager.settings_manager.save_settings()
@@ -2263,312 +2288,196 @@ class VMManagerUI:
         """Show dialog for managing tags"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Manage Tags")
-        dialog.geometry("500x600")  # Made window bigger
-        dialog.configure(bg=self.primary_bg_color)
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        # Center the window
-        # Get the window size
-        window_width = 500
-        window_height = 600
-        # Get the screen dimensions
+        
+        # Set dialog size
+        dialog_width = 600
+        dialog_height = 400
+        
+        # Get screen dimensions
         screen_width = dialog.winfo_screenwidth()
         screen_height = dialog.winfo_screenheight()
         # Calculate position coordinates
-        x = (screen_width/2) - (window_width/2)
-        y = (screen_height/2) - (window_height/2)
-        # Set the position
-        dialog.geometry(f"{window_width}x{window_height}+{int(x)}+{int(y)}")
-
-        # Title
-        title_label = tk.Label(
-            dialog,
-            text="Manage Tags",
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 16, 'bold')
-        )
-        title_label.pack(pady=(20, 10))
-
-        # Scrollable container for tags
-        scroll_frame = tk.Frame(dialog, bg=self.primary_bg_color)
-        scroll_frame.pack(fill='both', expand=True, padx=20, pady=10)
-
-        # Canvas for scrolling
-        canvas = tk.Canvas(
-            scroll_frame, 
-            bg=self.primary_bg_color, 
-            bd=0, 
-            highlightthickness=0,
-            relief='ridge'
-        )
+        center_x = int((screen_width - dialog_width) / 2)
+        center_y = int((screen_height - dialog_height) / 2)
         
-        # Style the scrollbar
-        style = ttk.Style()
-        if self.current_theme == "dark":
-            style.configure(
-                "Custom.Vertical.TScrollbar",
-                background='#6B7280',  # Lighter gray for better visibility
-                troughcolor='#1F2937',  # Darker background
-                width=12,  # Made wider
-                relief="flat",
-                borderwidth=0,
-                arrowsize=0
-            )
-            style.map('Custom.Vertical.TScrollbar',
-                     background=[('pressed', '#9CA3AF'),  # Even lighter when pressed
-                               ('active', '#6B7280')])  # Same as normal for consistency
-        else:
-            style.configure(
-                "Custom.Vertical.TScrollbar",
-                background='#9CA3AF',  # Darker gray for better visibility
-                troughcolor='#F3F4F6',  # Light background
-                width=12,  # Made wider
-                relief="flat",
-                borderwidth=0,
-                arrowsize=0
-            )
-            style.map('Custom.Vertical.TScrollbar',
-                     background=[('pressed', '#6B7280'),  # Darker when pressed
-                               ('active', '#9CA3AF')])  # Same as normal for consistency
-
-        # Create and configure scrollbar with padding
-        scrollbar = ttk.Scrollbar(
-            scroll_frame,
-            orient="vertical",
-            command=canvas.yview,
-            style="Custom.Vertical.TScrollbar"
-        )
-
-        tag_container = tk.Frame(canvas, bg=self.primary_bg_color)
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Set size and position
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{center_x}+{center_y}")
+        dialog.configure(bg=self.primary_bg_color)
         
-        # Pack scrollbar with more padding
-        scrollbar.pack(side="right", fill="y", padx=(5, 0))
-        canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
-
-        # Create window in canvas for tag container
-        canvas_frame = canvas.create_window(
-            (0, 0),
-            window=tag_container,
-            anchor="nw",
-            width=canvas.winfo_reqwidth()
-        )
-
-        # Update the scroll region when the size changes
-        def configure_scroll_region(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            # Update the canvas window width when the frame size changes
-            canvas.itemconfig(canvas_frame, width=canvas.winfo_width())
-
-        tag_container.bind('<Configure>', configure_scroll_region)
-        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_frame, width=canvas.winfo_width()))
-
-        # Bind mouse wheel to scrolling
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        # Make dialog modal
+        dialog.transient(self.root)
+        dialog.grab_set()
         
-        canvas.bind_all("<MouseWheel>", on_mousewheel)
+        # Create a frame for the tag list (now at the top)
+        tag_list_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        tag_list_frame.pack(pady=10, padx=10, fill="both", expand=True)
         
-        # Bind for touch pad scrolling on macOS
-        canvas.bind_all('<Button-4>', lambda e: canvas.yview('scroll', -1, 'units'))
-        canvas.bind_all('<Button-5>', lambda e: canvas.yview('scroll', 1, 'units'))
-
-        # Populate existing tags
-        self.populate_tag_list(tag_container)
-
-        # Add new tag frame
-        entry_frame = tk.Frame(dialog, bg=self.primary_bg_color)
-        entry_frame.pack(fill='x', padx=20, pady=10)
-
-        # Add new tag entry
-        entry = tk.Entry(
-            entry_frame,
-            bg='white',
-            fg='gray',
+        def update_tag_list():
+            """Update the list of tags in the dialog"""
+            # Clear existing tags
+            for widget in tag_list_frame.winfo_children():
+                widget.destroy()
+                
+            # Add each tag with a delete button
+            for tag in self.vm_manager.tags:
+                tag_frame = tk.Frame(tag_list_frame, bg=self.primary_bg_color)
+                tag_frame.pack(fill="x", pady=2)
+                
+                tk.Label(
+                    tag_frame,
+                    text=tag,
+                    bg=self.primary_bg_color,
+                    fg=self.text_color,
+                    font=('Helvetica', 12)
+                ).pack(side=tk.LEFT, padx=5)
+                
+                tk.Button(
+                    tag_frame,
+                    text="×",
+                    command=lambda t=tag: self.delete_tag(t, tag_frame),
+                    bg='#dc3545',
+                    fg='white',
+                    font=('Helvetica', 10, 'bold'),
+                    bd=0,
+                    padx=5,
+                    cursor="hand2"
+                ).pack(side=tk.RIGHT)
+        
+        # Add tag frame (now at the bottom)
+        add_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        add_frame.pack(pady=10, padx=10, fill="x", side=tk.BOTTOM)
+        
+        # Tag input with placeholder
+        tag_entry = tk.Entry(
+            add_frame,
             font=('Helvetica', 12),
-            bd=1,
-            relief='solid'
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            insertbackground=self.text_color
         )
-        entry.pack(fill='x', pady=(0, 10))
-        entry.insert(0, "Add new tag")
-        entry.bind('<FocusIn>', lambda e: self.on_entry_click(entry, "Add new tag"))
-        entry.bind('<FocusOut>', lambda e: self.on_focus_out(entry, "Add new tag"))
+        tag_entry.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 5))
+        
+        # Add placeholder text
+        tag_entry.insert(0, "Enter new tag...")
+        tag_entry.config(fg='gray')
 
-        # Add Tag button
+        def on_entry_click(event):
+            """Handle entry field click"""
+            if tag_entry.get() == "Enter new tag...":
+                tag_entry.delete(0, tk.END)
+                tag_entry.config(fg=self.text_color)
+
+        def on_focus_out(event):
+            """Handle focus leaving entry field"""
+            if tag_entry.get().strip() == "":
+                tag_entry.delete(0, tk.END)  # Clear any spaces
+                tag_entry.insert(0, "Enter new tag...")
+                tag_entry.config(fg='gray')
+
+        tag_entry.bind('<FocusIn>', on_entry_click)
+        tag_entry.bind('<FocusOut>', on_focus_out)
+        
+        # Function to handle adding a tag
+        def add_tag():
+            tag_name = tag_entry.get().strip()
+            if tag_name and tag_name != "Enter new tag...":
+                if self.vm_manager.add_tag(tag_name):
+                    tag_entry.delete(0, tk.END)
+                    tag_entry.insert(0, "Enter new tag...")  # Reset placeholder
+                    tag_entry.config(fg='gray')  # Reset color
+                    tag_entry.focus_set()  # Give focus back to entry
+                    tag_entry.select_range(0, tk.END)  # Select all text
+                    self.update_tag_filters()
+                    update_tag_list()
+        
+        # Add button
         add_btn = tk.Button(
-            entry_frame,
+            add_frame,
             text="Add Tag",
-            command=lambda: self.add_new_tag(entry, tag_container),
-            bg='#1a73e8',
-            fg='white',
-            font=('Helvetica', 11),
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2"
-        )
-        add_btn.pack(fill='x')
-
-        # Close button
-        close_btn = tk.Button(
-            dialog,
-            text="Close",
-            command=lambda: self.cleanup_and_close(dialog),
+            command=add_tag,
+            font=('Helvetica', 12),
             bg=self.button_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 11),
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2"
+            fg=self.text_color
         )
-        close_btn.pack(pady=20)
-
-    def cleanup_and_close(self, dialog):
-        """Clean up bindings and close dialog"""
-        # Unbind mousewheel events
-        self.root.unbind_all("<MouseWheel>")
-        self.root.unbind_all('<Button-4>')
-        self.root.unbind_all('<Button-5>')
-        dialog.destroy()
-
-    def on_entry_click(self, entry, default_text):
-        """Handle entry field focus"""
-        if entry.get() == default_text:
-            entry.delete(0, "end")
-            entry.config(fg='black')
-
-    def on_focus_out(self, entry, default_text):
-        """Handle entry field focus loss"""
-        if entry.get() == "":
-            entry.insert(0, default_text)
-            entry.config(fg='gray')
-
-    def populate_tag_list(self, container):
-        """Populate tag list with existing tags"""
-        for tag in self.vm_manager.tags:
-            self.create_tag_item(container, tag)
-
-    def create_tag_item(self, container, tag_name):
-        """Create a single tag item in the list"""
-        tag_frame = tk.Frame(container, bg=self.primary_bg_color)
-        tag_frame.pack(fill='x', pady=2)
-
-        # Tag name
-        tag_label = tk.Label(
-            tag_frame,
-            text=tag_name,
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 11),
-            anchor='w'
-        )
-        tag_label.pack(side='left', padx=(10, 0))
-
-        # Delete button
-        delete_btn = tk.Button(
-            tag_frame,
-            text="×",
-            command=lambda t=tag_name: self.delete_tag(t, tag_frame),
-            bg=self.primary_bg_color,
-            fg='red',
-            font=('Helvetica', 12, 'bold'),
-            bd=0,
-            cursor="hand2"
-        )
-        delete_btn.pack(side='right', padx=10)
-
-    def delete_tag(self, tag_name, tag_frame):
-        """Delete a tag"""
-        if self.vm_manager.delete_tag(tag_name):
-            tag_frame.destroy()
-            self.update_tag_filters()
-
-    def filter_by_tag(self, tag_name):
-        """Filter machines by multiple tags"""
-        if tag_name in self.active_tag_filters:
-            # If tag is already selected, deselect it
-            self.active_tag_filters.remove(tag_name)
-        else:
-            # If tag is not selected, add it
-            self.active_tag_filters.add(tag_name)
+        add_btn.pack(side=tk.RIGHT)
         
-        if self.active_tag_filters:
-            # Filter machines that have ALL selected tags
-            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
-        else:
-            # If no tags selected, show all machines
-            filtered_pcs = self.vm_manager.pc_names
+        # Bind Enter key to add_tag function
+        tag_entry.bind('<Return>', lambda e: add_tag())
         
-        self.position_buttons(filtered_pcs)
-        
-        # Update all tag button colors
-        for btn in self.tag_filters_container.winfo_children():
-            if hasattr(btn, 'tag'):
-                if btn.tag in self.active_tag_filters:
-                    btn.configure(bg=self.hover_active_color)
-                else:
-                    btn.configure(bg=self.secondary_bg_color)
-
-    def on_tag_button_hover(self, button):
-        """Handle tag button hover"""
-        if button.tag not in self.active_tag_filters:
-            button.configure(bg=self.hover_active_color)
-
-    def on_tag_button_leave(self, button):
-        """Handle tag button mouse leave"""
-        if button.tag not in self.active_tag_filters:
-            button.configure(bg=self.secondary_bg_color)
-        else:
-            button.configure(bg=self.hover_active_color)
+        # Initially populate the tag list
+        update_tag_list()
 
     def reset_tag_filter(self):
-        """Reset tag filter to show all machines"""
-        self.active_tag_filters.clear()
-        self.position_buttons()
-        
-        # Reset all button colors
-        for btn in self.tag_filters_container.winfo_children():
-            if isinstance(btn, tk.Button):
-                btn.configure(bg=self.secondary_bg_color)
+        """Reset all tag filters"""
+        self.active_tag_filters.clear()  # Clear all active filters
+        self.position_buttons()  # Refresh the display
+        self.update_tag_filters()  # Update tag button appearances
 
-    def add_new_tag(self, entry, tag_container):
-        """Add a new tag"""
-        tag_name = entry.get().strip()
-        if tag_name and tag_name != "Add new tag":  # Check it's not the placeholder text
-            if self.vm_manager.add_tag(tag_name):
-                # Create new tag item in the container
-                self.create_tag_item(tag_container, tag_name)
-                # Clear entry and reset placeholder
-                entry.delete(0, 'end')
-                entry.insert(0, "Add new tag")
-                entry.config(fg='gray')
-                # Update sidebar tag filters
-                self.update_tag_filters()
-            else:
-                messagebox.showwarning("Warning", "Tag already exists!")
-
-    def delete_selected_tag(self, listbox):
-        """Delete selected tag"""
-        selection = listbox.curselection()
-        if selection:
-            tag_name = listbox.get(selection[0])
-            if messagebox.askyesno("Confirm Delete", 
-                                  f"Are you sure you want to delete the tag '{tag_name}'?\n"
-                                  "It will be removed from all machines."):
-                if self.vm_manager.delete_tag(tag_name):
-                    listbox.delete(selection[0])
-
-    def toggle_machine_tag(self, pc_name, tag_name):
-        """Toggle tag for a machine"""
-        machine_tags = self.vm_manager.get_machine_tags(pc_name)
-        if tag_name in machine_tags:
-            self.vm_manager.remove_machine_tag(pc_name, tag_name)
+    def filter_by_tag(self, tag):
+        """Filter machines by tag"""
+        if tag in self.active_tag_filters:
+            self.active_tag_filters.remove(tag)
         else:
-            self.vm_manager.add_machine_tag(pc_name, tag_name)
-        self.position_buttons()  # Refresh display
+            self.active_tag_filters.add(tag)
+        
+        # Update the display
+        if self.active_tag_filters:
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+            self.position_buttons(filtered_pcs)
+        else:
+            self.position_buttons()
+        
+        # Update tag button appearances
+        self.update_tag_filters()
+
+    def delete_tag(self, tag, tag_frame=None):
+        """Delete a tag and update UI"""
+        if self.vm_manager.delete_tag(tag):
+                # Remove tag from active filters if it's there
+                if tag in self.active_tag_filters:
+                    self.active_tag_filters.remove(tag)
+                
+                # Update main window tag display
+                self.update_tag_filters()
+                
+                # Update machine display if needed
+                if self.active_tag_filters:
+                    filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+                    self.position_buttons(filtered_pcs)
+                else:
+                    self.position_buttons()
+                
+                # Instead of just removing the tag frame, refresh the entire tag list
+        if tag_frame:
+            # Get the parent frame (tag_list_frame) and update all tags
+            tag_list_frame = tag_frame.master
+            for widget in tag_list_frame.winfo_children():
+                widget.destroy()
+
+            # Recreate all tag entries
+            for existing_tag in self.vm_manager.tags:
+                new_tag_frame = tk.Frame(tag_list_frame, bg=self.primary_bg_color)
+                new_tag_frame.pack(fill="x", pady=2)
+                
+                tk.Label(
+                    new_tag_frame,
+                    text=existing_tag,
+                    bg=self.primary_bg_color,
+                    fg=self.text_color,
+                    font=('Helvetica', 12)
+                ).pack(side=tk.LEFT, padx=5)
+                
+                tk.Button(
+                    new_tag_frame,
+                    text="×",
+                    command=lambda t=existing_tag: self.delete_tag(t, new_tag_frame),
+                    bg='#dc3545',
+                    fg='white',
+                    font=('Helvetica', 10, 'bold'),
+                    bd=0,
+                    padx=5,
+                    cursor="hand2"
+                ).pack(side=tk.RIGHT)
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
