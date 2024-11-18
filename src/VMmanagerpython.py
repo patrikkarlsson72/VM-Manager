@@ -875,15 +875,22 @@ class VMManagerUI:
         )
         tag_frame.pack(pady=10, padx=10, fill="x")
 
+        # Header Frame with blue background
+        header_frame = tk.Frame(
+            tag_frame,
+            bg='#1a73e8'  # Blue color similar to Manage Tags button
+        )
+        header_frame.pack(fill="x", pady=(0, 5))
+
         # Header Label
         self.tags_label = tk.Label(
-            tag_frame,
+            header_frame,
             text="Filter by Tag",
-            bg=self.secondary_bg_color,
-            fg=self.text_color,
+            bg='#1a73e8',  # Match frame background
+            fg='white',    # White text for better contrast
             font=('Helvetica', 14, 'bold')
         )
-        self.tags_label.pack(anchor="w", pady=(0, 5))
+        self.tags_label.pack(anchor="w", pady=5, padx=5)
 
         # Container for tag filters
         self.tag_filters_container = tk.Frame(
@@ -1236,15 +1243,61 @@ class VMManagerUI:
             anchor="center",
             tags=(button_tag, "button"))
 
-        description_text = None
+        # Truncate description if it's too long (around 50 characters)
+        truncated_description = description[:50] + "..." if description and len(description) > 50 else description
+
+        # Create the truncated description text on button
         if description:
             description_text = self.canvas.create_text(
                 center_x, description_y,
-                text=description,
+                text=truncated_description,
                 fill=self.text_color,
                 font=('Helvetica', status_font_size),
                 anchor="center",
+                width=width * 0.9,  # Limit width to 90% of button width
                 tags=(button_tag, "button"))
+
+            def show_tooltip(event):
+                # Safely destroy existing tooltip
+                if hasattr(self, 'current_tooltip') and self.current_tooltip is not None:
+                    try:
+                        self.current_tooltip.destroy()
+                    except:
+                        pass
+                    self.current_tooltip = None
+                
+                tooltip = tk.Toplevel(self.root)
+                tooltip.wm_overrideredirect(True)
+                tooltip.configure(bg=self.secondary_bg_color)
+                tooltip.geometry(f"+{event.x_root + 15}+{event.y_root + 10}")
+                
+                label = tk.Label(
+                    tooltip,
+                    text=description,
+                    wraplength=300,
+                    justify="left",
+                    bg=self.secondary_bg_color,
+                    fg=self.text_color,
+                    padx=10,
+                    pady=5
+                )
+                label.pack()
+                
+                self.current_tooltip = tooltip
+
+            def hide_tooltip(event):
+                # Safely destroy tooltip
+                if hasattr(self, 'current_tooltip') and self.current_tooltip is not None:
+                    try:
+                        self.current_tooltip.destroy()
+                    except:
+                        pass
+                    self.current_tooltip = None
+
+            # Bind both the text and the button background for tooltip events
+            for item in self.canvas.find_withtag(button_tag):
+                self.canvas.tag_bind(item, '<Enter>', show_tooltip)
+                self.canvas.tag_bind(item, '<Leave>', hide_tooltip)
 
         # Add tags display
         tags = self.vm_manager.get_machine_tags(text)
@@ -2429,11 +2482,9 @@ class VMManagerUI:
 
     def delete_tag(self, tag_name, tag_frame):
         """Delete a tag"""
-        if messagebox.askyesno("Confirm Delete", 
-                              f"Are you sure you want to delete the tag '{tag_name}'?"):
-            if self.vm_manager.delete_tag(tag_name):
-                tag_frame.destroy()
-                self.update_tag_filters()
+        if self.vm_manager.delete_tag(tag_name):
+            tag_frame.destroy()
+            self.update_tag_filters()
 
     def filter_by_tag(self, tag_name):
         """Filter machines by multiple tags"""
