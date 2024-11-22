@@ -695,6 +695,27 @@ class VMManagerUI:
         self.root = tk.Tk()
         self.root.title("VM Manager")
         
+        # Update icon loading logic
+        try:
+            if getattr(sys, 'frozen', False):
+                # Running as compiled executable
+                base_path = os.path.dirname(sys.executable)
+                assets_path = os.path.join(base_path, "assets")
+            else:
+                # Running as script
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                assets_path = os.path.join(base_path, "assets")
+            
+            # Main window icon
+            icon_path = os.path.join(assets_path, "logo256.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+            else:
+                print(f"Warning: Could not find main icon at {icon_path}")
+                
+        except Exception as e:
+            print(f"Warning: Could not load main window icon: {e}")
+
         # Initialize active_tag_filters as a set
         self.active_tag_filters = set()
         
@@ -786,7 +807,7 @@ class VMManagerUI:
             text="VM Manager", 
             bg=self.header_bg_color, 
             fg=self.text_color, 
-            font=("Montserrat", 22, "bold")
+            font=("Calibri", 22, "bold")
         )
         self.title_label.pack(side=tk.LEFT, padx=20)
 
@@ -1781,15 +1802,49 @@ class VMManagerUI:
     def update_settings(self):
         settings_window = tk.Toplevel(self.root)
         settings_window.title("Settings")
-        settings_window.geometry("400x600")
+        
+        # Update settings window icon loading
+        try:
+            if getattr(sys, 'frozen', False):
+                base_path = os.path.dirname(sys.executable)
+                assets_path = os.path.join(base_path, "assets")
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                assets_path = os.path.join(base_path, "assets")
+            
+            # Settings window icon
+            settings_icon_path = os.path.join(assets_path, "settings_icon.ico")
+            if os.path.exists(settings_icon_path):
+                settings_window.iconbitmap(settings_icon_path)
+            else:
+                print(f"Warning: Could not find settings icon at {settings_icon_path}")
+                
+        except Exception as e:
+            print(f"Warning: Could not load settings window icon: {e}")
+
+        # Set initial size
+        window_width = 400
+        window_height = 600
+        
+        # Get screen dimensions
+        screen_width = settings_window.winfo_screenwidth()
+        screen_height = settings_window.winfo_screenheight()
+        
+        # Calculate position coordinates
+        center_x = int((screen_width - window_width) / 2)
+        center_y = int((screen_height - window_height) / 2)
+        
+        # Set window size and position
+        settings_window.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         settings_window.configure(bg=self.primary_bg_color)
         settings_window.transient(self.root)
         settings_window.grab_set()
 
+        # Rest of your settings window code...
         # Main container frame
         main_frame = tk.Frame(settings_window, bg=self.primary_bg_color)
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
-
+        
         # Style configuration
         section_padding = 20
         button_width = 30
@@ -2319,31 +2374,74 @@ class VMManagerUI:
             for widget in tag_list_frame.winfo_children():
                 widget.destroy()
                 
-            # Add each tag with a delete button
+            # Add header row
+            header_frame = tk.Frame(tag_list_frame, bg=self.primary_bg_color)
+            header_frame.pack(fill="x", pady=(0, 10))
+            
+            tk.Label(header_frame, text="Tag Name", 
+                    bg=self.primary_bg_color, fg=self.text_color, 
+                    font=('Helvetica', 10, 'bold')).pack(side="left", padx=10)
+            
+            tk.Label(header_frame, text="Assigned To", 
+                    bg=self.primary_bg_color, fg=self.text_color,
+                    font=('Helvetica', 10, 'bold')).pack(side="left", padx=10, expand=True)
+                
+            # Add each tag with assigned machines and delete options
             for tag in self.vm_manager.tags:
                 tag_frame = tk.Frame(tag_list_frame, bg=self.primary_bg_color)
                 tag_frame.pack(fill="x", pady=2)
                 
-                tk.Label(
-                    tag_frame,
-                    text=tag,
-                    bg=self.primary_bg_color,
-                    fg=self.text_color,
-                    font=('Helvetica', 12)
-                ).pack(side=tk.LEFT, padx=5)
+                # Tag name
+                tk.Label(tag_frame, text=tag, 
+                        bg=self.primary_bg_color, fg=self.text_color).pack(side="left", padx=10)
                 
-                tk.Button(
-                    tag_frame,
-                    text="×",
-                    command=lambda t=tag: self.delete_tag(t, tag_frame),
-                    bg='#dc3545',
-                    fg='white',
-                    font=('Helvetica', 10, 'bold'),
-                    bd=0,
-                    padx=5,
-                    cursor="hand2"
-                ).pack(side=tk.RIGHT)
-        
+                # Get machines with this tag
+                assigned_machines = [m for m in self.vm_manager.pc_names 
+                                   if tag in self.vm_manager.get_machine_tags(m)]
+                
+                # Assigned machines frame (scrollable if many machines)
+                machines_frame = tk.Frame(tag_frame, bg=self.primary_bg_color)
+                machines_frame.pack(side="left", expand=True, fill="x", padx=10)
+                
+                for machine in assigned_machines:
+                    machine_frame = tk.Frame(machines_frame, bg=self.primary_bg_color)
+                    machine_frame.pack(side="left", padx=(0, 5))
+                    
+                    # Machine name
+                    tk.Label(machine_frame, text=machine,
+                            bg=self.secondary_bg_color, fg=self.text_color,
+                            padx=5).pack(side="left")
+                    
+                    # Delete tag from machine button - Remove 'self.' from the lambda
+                    tk.Button(machine_frame, text="×",
+                             command=lambda m=machine, t=tag: handle_remove_tag(m, t),
+                             bg=self.button_bg_color, fg="red",
+                             width=2, padx=2).pack(side="left")
+                
+                # Delete entire tag button - Remove 'self.' from the lambda
+                tk.Button(tag_frame, text="Delete Tag",
+                         command=lambda t=tag: handle_delete_tag(t),
+                         bg="#dc3545", fg="white",
+                         padx=5).pack(side="right", padx=10)
+
+        def handle_remove_tag(machine, tag):
+            """Local handler for removing tag from machine"""
+            if self.vm_manager.remove_machine_tag(machine, tag):
+                update_tag_list()
+                self.update_tag_filters()
+                if self.active_tag_filters:
+                    filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+                    self.position_buttons(filtered_pcs)
+
+        def handle_delete_tag(tag):
+            """Local handler for deleting entire tag"""
+            if self.vm_manager.delete_tag(tag):
+                update_tag_list()
+                self.update_tag_filters()
+                if self.active_tag_filters:
+                    filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+                    self.position_buttons(filtered_pcs)
+
         # Add tag frame (now at the bottom)
         add_frame = tk.Frame(dialog, bg=self.primary_bg_color)
         add_frame.pack(pady=10, padx=10, fill="x", side=tk.BOTTOM)

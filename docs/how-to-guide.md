@@ -1,5 +1,6 @@
 # VM Manager - How To Guide
 
+![VM Manager Logo](images/vm_logo.png)
 ## Table of Contents
 - [Initial Setup](#initial-setup)
 - [Adding Virtual Machines](#adding-virtual-machines)
