@@ -707,7 +707,7 @@ class VMManagerUI:
                 assets_path = os.path.join(base_path, "assets")
             
             # Main window icon
-            icon_path = os.path.join(assets_path, "logo256.ico")
+            icon_path = os.path.join(assets_path, "VmManagerlogo256.ico")
             if os.path.exists(icon_path):
                 self.root.iconbitmap(icon_path)
             else:
@@ -981,55 +981,79 @@ class VMManagerUI:
         for widget in self.tag_filters_container.winfo_children():
             widget.destroy()
 
-        # Create a frame that will allow tags to wrap
-        wrap_frame = tk.Frame(
-            self.tag_filters_container,
-            #bg=self.primary_bg_color
-        )
+        # Create wrapping frame
+        wrap_frame = self._create_wrap_frame()
+        
+        # Tag styling constants
+        TAG_STYLES = {
+            'inactive': {
+                'bg': "#ffffff",
+                'fg': "#000000",
+                'border': "#dee2e6"
+            },
+            'active': {
+                'bg': "#0d6efd",
+                'fg': "#ffffff"
+            }
+        }
+
+        # Layout tags in grid
+        self._layout_tag_buttons(wrap_frame, TAG_STYLES)
+
+    def _create_wrap_frame(self):
+        """Create and configure the wrapping frame for tags"""
+        wrap_frame = tk.Frame(self.tag_filters_container)
         wrap_frame.pack(fill="x", expand=True)
         wrap_frame.grid_columnconfigure(0, weight=1)
+        return wrap_frame
 
-        row = 0
-        col = 0
-        max_cols = 3  # Number of tags per row
+    def _layout_tag_buttons(self, wrap_frame, styles):
+        """Layout tag buttons in a grid"""
+        row, col = 0, 0
+        max_cols = 3
 
-        # Fixed colors for tags - matching your website design
-        tag_bg_color = "#ffffff"  # White background for inactive tags
-        tag_border_color = "#dee2e6"  # Light gray border
-        tag_active_color = "#0d6efd"  # Bootstrap blue for active state
-        tag_text_color = "#000000"  # Black text for inactive
-        tag_active_text_color = "#ffffff"  # White text for active state
-
-        # Create a button for each tag
         for tag in self.vm_manager.tags:
-            tag_btn = tk.Button(
-                wrap_frame,
-                text=f"🏷️ {tag}",
-                command=lambda t=tag: self.filter_by_tag(t),
-                bg=tag_bg_color if tag not in self.active_tag_filters else tag_active_color,
-                fg=tag_text_color if tag not in self.active_tag_filters else tag_active_text_color,
-                font=('Helvetica', 9),
-                bd=1,
-                relief="solid",
-                padx=5,
-                pady=2,
-                cursor="hand2"
-            )
+            is_active = tag in self.active_tag_filters
+            style = styles['active'] if is_active else styles['inactive']
+            
+            tag_btn = self._create_tag_button(wrap_frame, tag, style)
             tag_btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
-
-            # Bind hover effects
-            tag_btn.bind('<Enter>', 
-                lambda e, btn=tag_btn: btn.configure(bg=tag_active_color, fg=tag_active_text_color))
-            tag_btn.bind('<Leave>', 
-                lambda e, btn=tag_btn, t=tag: btn.configure(
-                    bg=tag_active_color if t in self.active_tag_filters else tag_bg_color,
-                    fg=tag_active_text_color if t in self.active_tag_filters else tag_text_color))
-
-            # Update row and column
+            
+            self._bind_hover_effects(tag_btn, tag, styles)
+            
             col += 1
             if col >= max_cols:
                 col = 0
                 row += 1
+
+    def _create_tag_button(self, parent, tag, style):
+        """Create a single tag button with styling"""
+        return tk.Button(
+            parent,
+            text=f"🏷️ {tag}",
+            command=lambda t=tag: self.filter_by_tag(t),
+            bg=style['bg'],
+            fg=style['fg'],
+            font=('Helvetica', 9),
+            bd=1,
+            relief="solid",
+            padx=5,
+            pady=2,
+            cursor="hand2"
+        )
+
+    def _bind_hover_effects(self, button, tag, styles):
+        """Bind hover effects to tag button"""
+        button.bind('<Enter>', 
+            lambda e: button.configure(
+                bg=styles['active']['bg'], 
+                fg=styles['active']['fg']
+            ))
+        button.bind('<Leave>', 
+            lambda e: button.configure(
+                bg=styles['active' if tag in self.active_tag_filters else 'inactive']['bg'],
+                fg=styles['active' if tag in self.active_tag_filters else 'inactive']['fg']
+            ))
 
     def show_multi_pc_dialog(self):
         """Show dialog for adding multiple PCs"""
@@ -2345,6 +2369,27 @@ class VMManagerUI:
         dialog = tk.Toplevel(self.root)
         dialog.title("Manage Tags")
         
+        # Update icon loading logic
+        try:
+            if getattr(sys, 'frozen', False):
+                # Running as compiled executable
+                base_path = os.path.dirname(sys.executable)
+                assets_path = os.path.join(base_path, "assets")
+            else:
+                # Running as script
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                assets_path = os.path.join(base_path, "assets")
+            
+            # Tag manager window icon
+            icon_path = os.path.join(assets_path, "tag_icon.ico")
+            if os.path.exists(icon_path):
+                dialog.iconbitmap(icon_path)
+            else:
+                print(f"Warning: Could not find tag manager icon at {icon_path}")
+                
+        except Exception as e:
+            print(f"Warning: Could not load tag manager window icon: {e}")
+        
         # Set dialog size
         dialog_width = 600
         dialog_height = 400
@@ -2590,6 +2635,14 @@ class VMManagerUI:
             # Add tag
             if self.vm_manager.add_machine_tag(machine_name, tag):
                 self.position_buttons()  # Refresh display
+
+    def center_window(self, window, width, height):
+        """Center a window on screen"""
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        center_x = int((screen_width - width) / 2)
+        center_y = int((screen_height - height) / 2)
+        window.geometry(f"{width}x{height}+{center_x}+{center_y}")
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):

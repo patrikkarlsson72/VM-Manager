@@ -12,6 +12,13 @@ VM Manager is a desktop application that helps manage and connect to virtual mac
 - **Theme Support**: Light and dark themes with customizable colors
 - **Data Export/Import**: Export and import settings and machine lists
 - **Customizable Settings**: Flexible configuration options for various preferences
+- **Machine Sharing**: Share machine configurations with other users
+- **Organized Settings**: Categorized settings for better organization and access
+- **Category Management**: Organize machines into customizable categories
+- **Category Filtering**: Quick filtering by category
+- **Visual Organization**: Color-coding for categories
+- **Machine Tagging**: Add custom tags to machines for flexible organization
+- **Tag Search**: Quick search through tagged machines
 
 ## Installation
 
@@ -52,11 +59,80 @@ python src/VMmanagerpython.py
 - Contains all configuration files and machine data
 - Can be changed through Settings
 
+### Categories
+- Create custom categories to organize machines
+- Assign colors for visual distinction
+- Support for nested categories
+- Multiple category assignments per machine
+- Category-based filtering and sorting
+
+### Tags
+- Add multiple tags to each machine
+- Flexible tag-based filtering
+- Tag combinations for advanced filtering
+
+
 ## Usage
 
 ### Adding Machines
 - Single machine: Enter machine name in the left sidebar
 - Multiple machines: Use the text area in the sidebar for batch input
+
+### Managing Categories
+To organize your machines into categories:
+
+![Categories](images/categories.png)
+
+1. Click "Manage Categories" in the sidebar
+2. Add a new category:
+   - Click "Add Category"
+   - Enter category name
+   - Choose category color (optional)
+   - Click Save
+3. Assign machines to categories:
+   - Right-click any machine
+   - Select "Set Category"
+   - Choose from available categories
+4. Filter by category:
+   - Click category name in sidebar
+   - View only machines in that category
+   - Click "All Machines" to clear filter
+
+### Category Organization
+Tips for effective category management:
+
+1. Use clear, descriptive category names
+2. Assign colors for visual organization
+3. Categories can be nested (subcategories)
+4. Machines can belong to multiple categories
+5. Categories can be edited or deleted through the management panel
+
+### Managing Tags
+To use the tagging system:
+
+![Tags](images/tags.png)
+
+1. Add tags to machines:
+   - Right-click any machine
+   - Select "Manage Tags"
+   - Add new tags or select existing ones
+   - Click Save or hit enter
+
+2. Filter by tags:
+   - Use the tag filter in the sidebar
+   - Select multiple tags for combined filtering
+   - Use tag search to find specific tags
+   - Clear filters to show all machines
+
+### Tag Organization Tips
+1. Use consistent naming conventions
+2. Combine with categories for advanced organization
+3. Regular tag cleanup and management
+
+### Tag Search and Filtering
+- Quick search through tagged machines
+- Filter by single or multiple tags
+- Combine tag and category filters
 
 ### Connecting to Machines
 - Click on a machine tile to connect via RDP
@@ -67,11 +143,30 @@ python src/VMmanagerpython.py
 
 ### Settings
 Access settings through the gear icon to configure:
-- Default RDP file path
-- Data directory location
-- Theme preferences
-- Status refresh interval
-- Import/Export settings
+- Machine Settings:
+  - Default RDP file path
+  - Machine sharing options
+  - Custom RDP configurations
+- Application Settings:
+  - Data directory location
+  - Theme preferences
+  - Status refresh interval
+- User Preferences:
+  - Display options
+  - Behavior settings
+- Import/Export:
+  - Settings backup/restore
+  - Machine list management
+  - Shared configurations
+
+### Machine Sharing
+- Share machine configurations with team members
+- Export specific machine settings
+- Import shared machine configurations
+- Control which settings are shared:
+  - RDP configurations
+  - Machine descriptions
+  - Custom paths
 
 ## Customization
 
@@ -161,6 +256,14 @@ For support, please:
 
 ## Version History
 
+- 1.2.0
+  - Added machine sharing functionality
+  - Implemented categorized settings
+  - Enhanced settings management
+- 1.1.0
+  - Added custom RDP path support per machine
+  - Enhanced machine-specific settings
+  - Bug fixes and performance improvements
 - 1.0.0
   - Initial release
   - Basic VM management features

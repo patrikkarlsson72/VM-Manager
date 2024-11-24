@@ -24,25 +24,72 @@ wheels/
 venv/
 ENV/
 env/
+.env/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.vs/
+*.suo
+*.user
+*.sln.docstates
 
 # Application specific
 *.rdp
 *.log
 *.msi
+config.ini
+settings.json
+machine_list.json
+*.db
+*.sqlite3
+
+# Documentation build
+docs/_build/
+docs/_static/
+docs/_templates/
 
 # Windows
 Thumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
 # Build directories
 build/
 dist/
+output/
+installer/
 
 # Local application data
 appdata/
+data/
+logs/
+temp/
+cache/
+
+# Test coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Packaging
+*.spec
+*.manifest
+*.application
+*.deploy
