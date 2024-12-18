@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import font as tkfont  # Add this import
 from tkinter import simpledialog, messagebox, filedialog, ttk, colorchooser
-import tkinter.messagebox as messagebox
 import subprocess
 import os
 from datetime import datetime
@@ -13,8 +12,6 @@ import json
 import csv
 import shutil
 from styles import MenuStyle  # Add this import at the top
-from tag_sidebar import TagSidebar
-from tag_manager import TagManager
 
 THEMES = {
     "dark": {
@@ -691,74 +688,6 @@ class VMManager:
                 filtered_machines.append(pc_name)
         return filtered_machines
 
-    def remove_category(self, category):
-        """Remove a category and update machine categories"""
-        if category in self.categories and category != "Default":
-            # Move machines from this category to Default
-            for machine in self.get_machines_by_category(category):
-                machine.category = "Default"
-            
-            # Remove the category
-            self.categories.remove(category)
-            
-            # Save changes
-            self.save_data()
-            return True
-        return False
-
-    def filter_by_category(self, category_name):
-        """Filter machines by category"""
-        self.current_filter = category_name  # Store current category filter
-        
-        # Get machines for the selected category
-        filtered_pcs = self.get_machines_by_category(category_name)
-        
-        # If there are active tag filters, apply them as well
-        if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
-            tag_filtered_pcs = self.get_machines_by_multiple_tags(list(self.active_tag_filters))
-            # Show only machines that match both category and tag filters
-            filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered_pcs]
-        
-        # Update the category buttons to show the selected state
-        self.update_category_buttons()
-        
-        self.position_buttons(filtered_pcs)
-
-    def toggle_machine_tag(self, machine_name, tag):
-        """Toggle a tag on/off for a machine"""
-        current_tags = self.get_machine_tags(machine_name)
-        
-        if tag in current_tags:
-            # Remove tag
-            if self.remove_machine_tag(machine_name, tag):
-                # Refresh with current filters
-                self.refresh_filtered_view()
-        else:
-            # Add tag
-            if self.add_machine_tag(machine_name, tag):
-                # Refresh with current filters
-                self.refresh_filtered_view()
-
-    def refresh_filtered_view(self):
-        """Refresh the view maintaining current filters"""
-        if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
-            if hasattr(self, 'current_filter') and self.current_filter:
-                # Both tag and category filters active
-                tag_filtered = self.get_machines_by_multiple_tags(list(self.active_tag_filters))
-                category_filtered = self.get_machines_by_category(self.current_filter)
-                filtered_pcs = [pc for pc in tag_filtered if pc in category_filtered]
-            else:
-                # Only tag filters active
-                filtered_pcs = self.get_machines_by_multiple_tags(list(self.active_tag_filters))
-        elif hasattr(self, 'current_filter') and self.current_filter:
-            # Only category filter active
-            filtered_pcs = self.get_machines_by_category(self.current_filter)
-        else:
-            # No filters active
-            filtered_pcs = self.pc_names
-        
-        self.position_buttons(filtered_pcs)
-
 class VMManagerUI:
     """Main application UI"""
     def __init__(self, vm_manager):
@@ -844,21 +773,11 @@ class VMManagerUI:
         
         self.root.configure(bg=self.primary_bg_color)
 
-        # Initialize tag manager before setup_ui
-        self.tag_manager = TagManager(self.vm_manager.file_manager)
-        
-        self.setup_ui()  # This will create the sidebar with tag system
-        
-        # Move these after setup_ui
+        self.setup_ui()
         self.running_indicators = {}
         self.connection_indicators = {}
         self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None}
-        self.dragging = False
-
-        # Bind tag events after UI setup
-        self.tag_sidebar.bind("<<TagSelected>>", self.handle_tag_selection)
-        self.tag_sidebar.bind("<<TagAdded>>", self.handle_tag_added)
-        self.tag_sidebar.bind("<<TagRemoved>>", self.handle_tag_removed)
+        self.dragging = False  # Add this flag to track drag state
 
     def setup_ui(self):
         # Create header
@@ -901,11 +820,13 @@ class VMManagerUI:
         self.underline_frame.pack(fill=tk.X)
 
     def create_sidebar(self):
-        # Create left panel with theme colors
         self.left_frame = tk.Frame(self.root, width=200, bg=self.secondary_bg_color)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
 
-        # Settings button first
+        self.border_frame = tk.Frame(self.root, width=2, bg=self.borders_and_dividers_color)
+        self.border_frame.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Settings button
         self.settings_button = tk.Button(
             self.left_frame, 
             text="Settings", 
@@ -920,18 +841,463 @@ class VMManagerUI:
         # Add Category Management section
         self.create_category_section()
 
-        # Add separator
-        ttk.Separator(self.left_frame, orient='horizontal').pack(fill='x', padx=5, pady=5)
+        # Add PC Buttons Frame
+        add_pc_frame = tk.Frame(
+            self.left_frame, 
+            bg=self.secondary_bg_color,  # Use theme color
+            highlightthickness=0  # Remove border
+        )
+        add_pc_frame.pack(fill="x", padx=10, pady=10)
 
-        # Add Single PC section (moved up)
-        self.create_add_pc_section()
+        # Add Single PC Label
+        self.add_single_pc_label = tk.Label(
+            self.left_frame,
+            text="Add Single PC",
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        )
+        self.add_single_pc_label.pack(anchor="w", pady=(10, 5), padx=(10, 0))
 
-        # Add separator
-        ttk.Separator(self.left_frame, orient='horizontal').pack(fill='x', padx=5, pady=5)
+        # Add Single PC input frame
+        self.single_pc_input_frame = tk.Frame(  # Make it an instance variable
+            self.left_frame,
+            bg=self.secondary_bg_color  # This controls the background
+        )
+        self.single_pc_input_frame.pack(fill="x", padx=10)
 
-        # Add tag sidebar at the bottom
-        self.tag_sidebar = TagSidebar(self.left_frame, self.tag_manager)
-        self.tag_sidebar.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Single PC input
+        self.single_pc_entry = tk.Entry(
+            self.single_pc_input_frame,
+            font=('Helvetica', 12),
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            insertbackground=self.text_color
+        )
+        self.single_pc_entry.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 5))
+
+        # Add PC Button
+        self.add_pc_btn = tk.Button(  # Make it an instance variable so we can update it
+            self.single_pc_input_frame,
+            text="+",
+            command=self.add_single_pc,
+            font=('Helvetica', 12),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=3
+        )
+        self.add_pc_btn.pack(side=tk.RIGHT)
+
+        # Multiple PC Button
+        multi_pc_btn = tk.Button(
+            self.left_frame,
+            text="Add Multiple PCs",
+            command=self.show_multi_pc_dialog,
+            font=('Helvetica', 12),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        )
+        multi_pc_btn.pack(pady=5, padx=10, fill="x")
+
+        # Add Tag Section after Categories
+        self.create_tag_section()
+
+    def create_tag_section(self):
+        """Create the tag filter section in sidebar"""
+        # Tag Frame
+        tag_frame = tk.Frame(
+            self.left_frame,
+            bg=self.secondary_bg_color  # Use sidebar color
+        )
+        tag_frame.pack(pady=10, padx=10, fill="x")
+
+        # Tag Header - Changed from header_bg_color to secondary_bg_color
+        self.tag_header_frame = tk.Frame(
+            tag_frame,
+            bg=self.secondary_bg_color  # Use sidebar color instead of header_bg_color
+        )
+        self.tag_header_frame.pack(fill="x")
+
+        # Tags Label
+        self.tags_label = tk.Label(
+            self.tag_header_frame,
+            text="Filter by Tag",
+            bg=self.secondary_bg_color,  # Use sidebar color
+            fg=self.text_color,
+            font=('Helvetica', 14, 'bold')
+        )
+        self.tags_label.pack(anchor="w", pady=5)
+
+        # Container for tag filters
+        self.tag_filters_container = tk.Frame(
+            tag_frame,
+            bg=self.secondary_bg_color  # Use sidebar color
+        )
+        self.tag_filters_container.pack(fill="x", padx=5, pady=5)
+
+        # Update tag filters
+        self.update_tag_filters()
+
+        # Button container for Manage Tags and Reset Filter - moved to bottom
+        button_container = tk.Frame(
+            tag_frame,
+            bg=self.secondary_bg_color
+            
+        )
+        button_container.pack(fill="x", pady=(10, 0))
+
+        # Manage Tags Button
+        manage_tags_btn = tk.Button(
+            button_container,
+            text="Manage Tags",
+            command=lambda: self.show_tag_manager(),
+            bg='#1a73e8',  # Blue color similar to your website
+            fg='white',
+            font=('Helvetica', 11),
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2"
+        )
+        manage_tags_btn.pack(side="left", fill="x", expand=True, padx=(0, 2))
+
+        # Reset Filter Button
+        reset_filter_btn = tk.Button(
+            button_container,
+            text="Reset Filter",
+            command=self.reset_tag_filter,
+            bg='#dc3545',  # Red color for reset
+            fg='white',
+            font=('Helvetica', 11),
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor="hand2"
+        )
+        reset_filter_btn.pack(side="right", fill="x", expand=True, padx=(2, 0))
+
+    def update_tag_filters(self):
+        """Update the tag filter buttons display"""
+        # Clear existing tag filters
+        for widget in self.tag_filters_container.winfo_children():
+            widget.destroy()
+
+        # Create wrapping frame with 3 columns
+        wrap_frame = tk.Frame(self.tag_filters_container, bg=self.secondary_bg_color)
+        wrap_frame.pack(fill="x", expand=True)
+        
+        # Configure grid columns to be equal width
+        for i in range(3):
+            wrap_frame.grid_columnconfigure(i, weight=1)
+
+        # Tag button styling - updated for rounded appearance
+        button_style = {
+            'bg': 'white',  # White background
+            'fg': 'black',  # Black text
+            'font': ('Helvetica', 9),
+            'relief': 'solid',  # Flat relief for rounded look
+            'bd': 1,  # No border
+            
+            'padx': 10,
+            'pady': 4,
+            'cursor': 'hand2',
+            'width': 12,  # Fixed width for uniform buttons
+            'highlightthickness': 0  # Remove highlight border
+        }
+
+        # Layout tags in grid, 3 columns
+        row, col = 0, 0
+        max_cols = 3
+
+        class RoundedButton(tk.Canvas):
+            def __init__(self, parent, text, command, is_active=False, **kwargs):
+                super().__init__(parent, **kwargs)
+                self.configure(
+                    bg=parent["bg"],
+                    highlightthickness=0,
+                    height=28  # Fixed height for the canvas
+                )
+
+                # Button states
+                self.default_bg = 'white'
+                self.active_bg = '#0d6efd'
+                self.hover_bg = '#f0f0f0'
+                self.current_bg = self.active_bg if is_active else self.default_bg
+                self.text = text
+                self.command = command
+
+                # Draw initial state
+                self.draw()
+                
+                # Bind events
+                self.bind('<Enter>', self.on_enter)
+                self.bind('<Leave>', self.on_leave)
+                self.bind('<Button-1>', self.on_click)
+
+            def draw(self):
+                self.delete('all')  # Clear canvas
+                
+                # Draw rounded rectangle
+                self.create_rounded_rectangle(
+                    2, 2,  # Add small offset for shadow effect
+                    self.winfo_reqwidth()-4, self.winfo_reqheight()-4,
+                    radius=12,
+                    fill=self.current_bg,
+                    outline='#e0e0e0'  # Light gray border
+                )
+                
+                # Draw text
+                self.create_text(
+                    self.winfo_reqwidth()/2,
+                    self.winfo_reqheight()/2,
+                    text=self.text,
+                    fill='white' if self.current_bg == self.active_bg else 'black',
+                    font=('Helvetica', 9))
+
+            def create_rounded_rectangle(self, x1, y1, x2, y2, radius, **kwargs):
+                # Create rounded rectangle using arcs and lines
+                points = [
+                    x1+radius, y1,
+                    x2-radius, y1,
+                    x2, y1,
+                    x2, y1+radius,
+                    x2, y2-radius,
+                    x2, y2,
+                    x2-radius, y2,
+                    x1+radius, y2,
+                    x1, y2,
+                    x1, y2-radius,
+                    x1, y1+radius,
+                    x1, y1
+                ]
+                return self.create_polygon(points, smooth=True, **kwargs)
+
+            def on_enter(self, event):
+                if self.current_bg != self.active_bg:
+                    self.current_bg = self.hover_bg
+                    self.draw()
+
+            def on_leave(self, event):
+                if self.current_bg != self.active_bg:
+                    self.current_bg = self.default_bg
+                    self.draw()
+
+            def on_click(self, event):
+                if self.command:
+                    self.command()
+
+        # Add existing tags
+        for tag in self.vm_manager.tags:
+            is_active = tag in self.active_tag_filters
+            
+            # Create rounded button
+            btn = RoundedButton(
+                wrap_frame,
+                text=f"🏷️ {tag}",
+                command=lambda t=tag: self.filter_by_tag(t),
+                is_active=is_active,
+                width=120  # Fixed width for the canvas
+            )
+            
+            btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
+            
+            # Move to next column/row
+            col += 1
+            if col >= max_cols:
+                col = 0
+                row += 1
+
+        # Add "Add New Tag" button at the end
+        add_btn = RoundedButton(
+            wrap_frame,
+            text="➕ add new tag",
+            command=lambda: self.show_tag_manager(),
+            width=120
+        )
+        add_btn.grid(row=row + (col > 0), column=col if col < max_cols else 0, 
+                    padx=2, pady=2, sticky="ew")
+
+    def show_multi_pc_dialog(self):
+        """Show dialog for adding multiple PCs"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Add Multiple PCs")
+        dialog.geometry("400x300")
+        dialog.configure(bg=self.primary_bg_color)
+        
+        # Make dialog modal
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Add explanation label
+        tk.Label(
+            dialog,
+            text="Enter PC names (one per line):",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(pady=10, padx=10)
+
+        # Text area for PC names
+        text_area = tk.Text(
+            dialog,
+            height=10,
+            width=40,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12),
+            insertbackground=self.text_color
+        )
+        text_area.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        # Buttons frame
+        btn_frame = tk.Frame(dialog, bg=self.primary_bg_color)
+        btn_frame.pack(pady=10, padx=10, fill=tk.X)
+
+        # Add button
+        tk.Button(
+            btn_frame,
+            text="Add PCs",
+            command=lambda: self.add_multiple_pcs_from_dialog(text_area, dialog),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(side=tk.LEFT, expand=True, padx=5)
+
+        # Cancel button
+        tk.Button(
+            btn_frame,
+            text="Cancel",
+            command=dialog.destroy,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 12)
+        ).pack(side=tk.LEFT, expand=True, padx=5)
+
+    def add_multiple_pcs_from_dialog(self, text_area, dialog):
+        """Add multiple PCs from dialog text area"""
+        pc_text = text_area.get("1.0", tk.END).strip()
+        if pc_text:
+            pcs = pc_text.splitlines()
+            added_count = 0
+            for pc in pcs:
+                if self.vm_manager.add_pc(pc.strip()):
+                    added_count += 1
+            self.position_buttons()
+            dialog.destroy()
+            if added_count > 0:
+                messagebox.showinfo("Success", f"Added {added_count} PCs successfully!")
+
+    def create_category_section(self):
+        """Create the category management section in sidebar"""
+        # Category Frame
+        category_frame = tk.Frame(
+            self.left_frame,
+            bg=self.secondary_bg_color
+        )
+        category_frame.pack(pady=10, padx=10, fill="x")
+
+        # Categories Label
+        self.categories_label = tk.Label(  # Make it an instance variable to update later
+            category_frame,
+            text="Categories",
+            bg=self.secondary_bg_color,
+            fg=self.text_color,  # Use theme text color
+            font=('Helvetica', 14, 'bold')
+        )
+        self.categories_label.pack(anchor="w", pady=(0, 5))
+
+        # Container for category buttons
+        self.category_buttons_container = tk.Frame(
+            category_frame,
+            bg=self.secondary_bg_color
+        )
+        self.category_buttons_container.pack(fill="x", padx=5, pady=5)
+
+        # Add Category Button
+        self.add_category_btn = tk.Button(
+            category_frame,
+            text="Add Category+",
+            command=self.add_category_dialog,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Helvetica', 10),
+            relief="solid",
+            bd=1,
+            cursor="hand2"
+        )
+        self.add_category_btn.pack(pady=(5, 10), padx=10, fill="x")
+
+        # Create initial category buttons
+        self.update_category_buttons()
+
+    def update_category_buttons(self):
+        """Update the category buttons display"""
+        # Clear existing buttons
+        for widget in self.category_buttons_container.winfo_children():
+            widget.destroy()
+
+        # Create button for each category
+        for category in self.vm_manager.categories:
+            # Set initial background color based on whether this is the current filter
+            initial_bg = self.hover_active_color if (hasattr(self, 'current_filter') and self.current_filter == category) else self.secondary_bg_color
+            
+            btn = tk.Button(
+                self.category_buttons_container,
+                text=category,
+                command=lambda c=category: self.filter_by_category(c),
+                bg=initial_bg,
+                fg=self.text_color,
+                font=('Helvetica', 11),
+                bd=0,
+                anchor="w",
+                padx=10,
+                cursor="hand2"
+            )
+            btn.pack(fill="x", pady=2)
+
+            # Store category name as an attribute
+            btn.category = category
+
+            # Bind hover effects
+            btn.bind('<Enter>', lambda e, b=btn: self.on_category_button_hover(b))
+            btn.bind('<Leave>', lambda e, b=btn: self.on_category_button_leave(b))
+            
+            # Add right-click menu for non-Default categories
+            if category != "Default":
+                btn.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
+
+    def on_category_button_hover(self, button):
+        """Handle category button hover"""
+        if not hasattr(self, 'current_filter') or button.category != self.current_filter:
+            button.configure(bg=self.hover_active_color)
+
+    def on_category_button_leave(self, button):
+        """Handle category button mouse leave"""
+        if not hasattr(self, 'current_filter') or button.category != self.current_filter:
+            button.configure(bg=self.secondary_bg_color)
+        else:
+            button.configure(bg=self.hover_active_color)
+
+    def filter_by_category(self, category_name):
+        """Filter machines by category"""
+        self.current_filter = category_name
+        filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
+        self.position_buttons(filtered_pcs)
+        
+        # Update all category button colors
+        for btn in self.category_buttons_container.winfo_children():
+            if hasattr(btn, 'category'):
+                if btn.category == category_name:
+                    btn.configure(bg=self.hover_active_color)
+                else:
+                    btn.configure(bg=self.secondary_bg_color)
+
+    def add_category_dialog(self):
+        """Show dialog to add a new category"""
+        category_name = simpledialog.askstring("Add Category", "Enter category name:")
+        if category_name:
+            if self.vm_manager.add_category(category_name):
+                self.update_category_buttons()  # Update the category buttons instead of listbox
 
     def create_main_area(self):
         self.main_frame = tk.Frame(self.root, bg=self.primary_bg_color)
@@ -974,9 +1340,8 @@ class VMManagerUI:
             width=2,
             tags=(button_tag, "button", "button_bg")  # Add background-specific tag
         )
-        
         # Status indicator circle (top right corner)
-        indicator_radius = min(width, height) * 0.05
+        
         indicator_radius = min(width, height) * 0.05
         indicator_x = x + width - (indicator_radius * 2)
         indicator_y = y + (indicator_radius * 2)
@@ -1121,8 +1486,6 @@ class VMManagerUI:
         ]
         return canvas.create_polygon(points, smooth=True, **kwargs)
 
-
-
     def update_machine_status(self):
         """Update status of all machines"""
         for pc_name in self.vm_manager.pc_names:
@@ -1134,26 +1497,17 @@ class VMManagerUI:
             ).start()
         
         # Update display based on current filters
-        if hasattr(self, 'tag_sidebar'):
-            selected_tags = self.tag_sidebar.get_selected_tags()
-            if selected_tags:
-                # Get machines that match the tag filter
-                filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(selected_tags)
-                
-                # If there's also a category filter active, intersect the results
-                if hasattr(self, 'current_filter') and self.current_filter:
-                    category_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
-                    # Only show machines that match both filters
-                    filtered_pcs = [pc for pc in filtered_pcs if pc in category_pcs]
-                
-                self.position_buttons(filtered_pcs)
-            elif hasattr(self, 'current_filter') and self.current_filter:
-                # Only category filter is active
-                filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
-                self.position_buttons(filtered_pcs)
-            else:
-                # No filters active, show all machines
-                self.position_buttons()
+        if self.active_tag_filters:
+            # If tag filters are active, show only machines with those tags
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+            self.position_buttons(filtered_pcs)
+        elif hasattr(self, 'current_filter') and self.current_filter:
+            # If category filter is active, maintain it
+            filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+            self.position_buttons(filtered_pcs)
+        else:
+            # No filters active, show all machines
+            self.position_buttons()
             
         # Schedule next update
         self.root.after(5000, self.update_machine_status)
@@ -1175,14 +1529,10 @@ class VMManagerUI:
         self.text_color = theme["text"]
         self.hover_active_color = theme["hover_active"]
         self.border_color = theme["borders"]
-        self.header_bg_color = theme["header_bg"]
+        self.header_bg_color = theme["header_bg"]  # Make sure to update header bg color
         
         # Update all UI elements with new colors
         self.update_theme_colors()
-        
-        # Update tag sidebar theme explicitly
-        if hasattr(self, 'tag_sidebar'):
-            self.tag_sidebar.update_theme(self.current_theme)
 
     def update_theme_colors(self):
         """Update all UI elements with current theme colors"""
@@ -1351,7 +1701,7 @@ class VMManagerUI:
                 )
         
         context_menu.add_cascade(
-            label="    Set Category",
+            label="  📂  Set Category",
             menu=category_menu,
             font=menu_style['font'],
             foreground=menu_style['fg']
@@ -2176,6 +2526,7 @@ class VMManagerUI:
             """Local handler for removing tag from machine"""
             if self.vm_manager.remove_machine_tag(machine, tag):
                 update_tag_list()
+                self.update_tag_filters()
                 if self.active_tag_filters:
                     filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
                     self.position_buttons(filtered_pcs)
@@ -2184,6 +2535,7 @@ class VMManagerUI:
             """Local handler for deleting entire tag"""
             if self.vm_manager.delete_tag(tag):
                 update_tag_list()
+                self.update_tag_filters()
                 if self.active_tag_filters:
                     filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
                     self.position_buttons(filtered_pcs)
@@ -2252,6 +2604,78 @@ class VMManagerUI:
         # Initially populate the tag list
         update_tag_list()
 
+    def reset_tag_filter(self):
+        """Reset all tag filters"""
+        self.active_tag_filters.clear()  # Clear all active filters
+        self.position_buttons()  # Refresh the display
+        self.update_tag_filters()  # Update tag button appearances
+
+    def filter_by_tag(self, tag):
+        """Filter machines by tag"""
+        if tag in self.active_tag_filters:
+            self.active_tag_filters.remove(tag)
+        else:
+            self.active_tag_filters.add(tag)
+        
+        # Update the display
+        if self.active_tag_filters:
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+            self.position_buttons(filtered_pcs)
+        else:
+            self.position_buttons()
+        
+        # Update tag button appearances
+        self.update_tag_filters()
+
+    def delete_tag(self, tag, tag_frame=None):
+        """Delete a tag and update UI"""
+        if self.vm_manager.delete_tag(tag):
+                # Remove tag from active filters if it's there
+                if tag in self.active_tag_filters:
+                    self.active_tag_filters.remove(tag)
+                
+                # Update main window tag display
+                self.update_tag_filters()
+                
+                # Update machine display if needed
+                if self.active_tag_filters:
+                    filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
+                    self.position_buttons(filtered_pcs)
+                else:
+                    self.position_buttons()
+                
+                # Instead of just removing the tag frame, refresh the entire tag list
+        if tag_frame:
+            # Get the parent frame (tag_list_frame) and update all tags
+            tag_list_frame = tag_frame.master
+            for widget in tag_list_frame.winfo_children():
+                widget.destroy()
+
+            # Recreate all tag entries
+            for existing_tag in self.vm_manager.tags:
+                new_tag_frame = tk.Frame(tag_list_frame, bg=self.primary_bg_color)
+                new_tag_frame.pack(fill="x", pady=2)
+                
+                tk.Label(
+                    new_tag_frame,
+                    text=existing_tag,
+                    bg=self.primary_bg_color,
+                    fg=self.text_color,
+                    font=('Helvetica', 12)
+                ).pack(side=tk.LEFT, padx=5)
+                
+                tk.Button(
+                    new_tag_frame,
+                    text="×",
+                    command=lambda t=existing_tag: self.delete_tag(t, new_tag_frame),
+                    bg='#dc3545',
+                    fg='white',
+                    font=('Helvetica', 10, 'bold'),
+                    bd=0,
+                    padx=5,
+                    cursor="hand2"
+                ).pack(side=tk.RIGHT)
+
     def toggle_machine_tag(self, machine_name, tag):
         """Toggle a tag on/off for a machine"""
         current_tags = self.vm_manager.get_machine_tags(machine_name)
@@ -2259,33 +2683,11 @@ class VMManagerUI:
         if tag in current_tags:
             # Remove tag
             if self.vm_manager.remove_machine_tag(machine_name, tag):
-                # Refresh with current filters
-                self.refresh_filtered_view()
+                self.position_buttons()  # Refresh display
         else:
             # Add tag
             if self.vm_manager.add_machine_tag(machine_name, tag):
-                # Refresh with current filters
-                self.refresh_filtered_view()
-
-    def refresh_filtered_view(self):
-        """Refresh the view maintaining current filters"""
-        if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
-            if hasattr(self, 'current_filter') and self.current_filter:
-                # Both tag and category filters active
-                tag_filtered = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
-                category_filtered = self.vm_manager.get_machines_by_category(self.current_filter)
-                filtered_pcs = [pc for pc in tag_filtered if pc in category_filtered]
-            else:
-                # Only tag filters active
-                filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
-        elif hasattr(self, 'current_filter') and self.current_filter:
-            # Only category filter active
-            filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
-        else:
-            # No filters active
-            filtered_pcs = self.vm_manager.pc_names
-        
-        self.position_buttons(filtered_pcs)
+                self.position_buttons()  # Refresh display
 
     def center_window(self, window, width, height):
         """Center a window on screen"""
@@ -2294,286 +2696,6 @@ class VMManagerUI:
         center_x = int((screen_width - width) / 2)
         center_y = int((screen_height - height) / 2)
         window.geometry(f"{width}x{height}+{center_x}+{center_y}")
-
-    def handle_tag_selection(self, event):
-        """Handle tag selection"""
-        selected_tags = self.tag_sidebar.get_selected_tags()
-        if selected_tags:
-            # Get machines that match the tag filter
-            filtered_machines = self.vm_manager.get_machines_by_multiple_tags(selected_tags)
-            
-            # If there's a category filter active, apply it as well
-            if hasattr(self, 'current_filter') and self.current_filter:
-                category_machines = self.vm_manager.get_machines_by_category(self.current_filter)
-                # Only show machines that match both filters
-                filtered_machines = [m for m in filtered_machines if m in category_machines]
-            
-            self.active_tag_filters = set(selected_tags)  # Store active filters
-            self.position_buttons(filtered_machines)
-        else:
-            self.active_tag_filters = set()  # Clear active filters
-            # If category filter is active, show only those machines
-            if hasattr(self, 'current_filter') and self.current_filter:
-                filtered_machines = self.vm_manager.get_machines_by_category(self.current_filter)
-                self.position_buttons(filtered_machines)
-            else:
-                self.position_buttons()
-
-    def handle_tag_added(self, event):
-        """Handle new tag added"""
-        print(f"Tag added: {self.tag_sidebar.last_added_tag}")
-        self.position_buttons()
-
-    def handle_tag_removed(self, event):
-        """Handle tag removed"""
-        print(f"Tag removed: {self.tag_sidebar.last_removed_tag}")
-        self.position_buttons()
-
-    def create_add_pc_section(self):
-        """Create the Add PC section in sidebar"""
-        # Add Single PC Label
-        self.add_single_pc_label = tk.Label(
-            self.left_frame,
-            text="Add Single PC",
-            bg=self.secondary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12)
-        )
-        self.add_single_pc_label.pack(anchor="w", pady=(10, 5), padx=(10, 0))
-
-        # Add Single PC input frame
-        self.single_pc_input_frame = tk.Frame(
-            self.left_frame,
-            bg=self.secondary_bg_color
-        )
-        self.single_pc_input_frame.pack(fill="x", padx=10)
-
-        # Single PC input
-        self.single_pc_entry = tk.Entry(
-            self.single_pc_input_frame,
-            font=('Helvetica', 12),
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            insertbackground=self.text_color
-        )
-        self.single_pc_entry.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 5))
-
-        # Add PC Button
-        self.add_pc_btn = tk.Button(
-            self.single_pc_input_frame,
-            text="+",
-            command=self.add_single_pc,
-            font=('Helvetica', 12),
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            width=3
-        )
-        self.add_pc_btn.pack(side=tk.RIGHT)
-
-        # Multiple PC Button
-        multi_pc_btn = tk.Button(
-            self.left_frame,
-            text="Add Multiple PCs",
-            command=self.show_multi_pc_dialog,
-            font=('Helvetica', 12),
-            bg=self.button_bg_color,
-            fg=self.text_color
-        )
-        multi_pc_btn.pack(pady=5, padx=10, fill="x")
-
-    def update_category_buttons(self):
-        """Update the category buttons display"""
-        # Clear existing buttons
-        for widget in self.category_buttons_container.winfo_children():
-            widget.destroy()
-
-        # Create button for each category
-        for category in self.vm_manager.categories:
-            # Check if this category is currently selected
-            is_selected = hasattr(self, 'current_filter') and self.current_filter == category
-            
-            btn = tk.Button(
-                self.category_buttons_container,
-                text=category,
-                command=lambda c=category: self.filter_by_category(c),
-                # Use hover_active_color if selected, otherwise use secondary_bg_color
-                bg=self.hover_active_color if is_selected else self.secondary_bg_color,
-                fg=self.text_color,
-                font=('Helvetica', 11, 'bold' if is_selected else 'normal'),  # Make selected text bold
-                bd=0,
-                anchor="w",
-                padx=10,
-                cursor="hand2",
-                activebackground=self.hover_active_color,
-                activeforeground=self.text_color
-            )
-            
-            # Modify hover effects to maintain selected state
-            btn.bind('<Enter>', lambda e, b=btn, s=is_selected: b.configure(bg=self.hover_active_color))
-            btn.bind('<Leave>', lambda e, b=btn, s=is_selected: b.configure(
-                bg=self.hover_active_color if s else self.secondary_bg_color
-            ))
-            
-            # Add right-click menu
-            btn.bind('<Button-3>', lambda e, b=btn, c=category: self._show_category_menu(e, b, c))
-            
-            btn.pack(fill="x", pady=2)
-
-    def _show_category_menu(self, event, button, category):
-        """Show right-click menu for category"""
-        menu = tk.Menu(button, tearoff=0)
-        menu.configure(**MenuStyle.get_themed_menu_style(self.current_theme))
-        menu.add_command(
-            label=f"Remove '{category}'",
-            command=lambda: self.remove_category(category)
-        )
-        menu.tk_popup(event.x_root, event.y_root)
-
-    def remove_category(self, category):
-        """Remove a category"""
-        if category != "Default":  # Prevent removing Default category
-            if self.vm_manager.remove_category(category):
-                self.update_category_buttons()
-                # Refresh machine display 
-                self.position_buttons(self.vm_manager.get_machines_by_category("Default"))
-
-    def filter_by_category(self, category_name):
-        """Filter machines by category"""
-        self.current_filter = category_name  # Store current category filter
-        
-        # Get machines for the selected category
-        filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
-        
-        # If there are active tag filters, apply them as well
-        if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
-            tag_filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
-            # Show only machines that match both category and tag filters
-            filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered_pcs]
-        
-        # Update the category buttons to show the selected state
-        self.update_category_buttons()
-        
-        self.position_buttons(filtered_pcs)
-
-    def add_category_dialog(self):
-        """Show dialog to add a new category"""
-        category_name = simpledialog.askstring("Add Category", "Enter category name:")
-        if category_name:
-            if self.vm_manager.add_category(category_name):
-                self.update_category_buttons()
-
-    def create_category_section(self):
-        """Create the category management section in sidebar"""
-        # Category Frame
-        category_frame = tk.Frame(
-            self.left_frame,
-            bg=self.secondary_bg_color
-        )
-        category_frame.pack(pady=10, padx=10, fill="x")
-
-        # Categories Label
-        self.categories_label = tk.Label(
-            category_frame,
-            text="Categories",
-            bg=self.secondary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 14, 'bold')
-        )
-        self.categories_label.pack(anchor="w", pady=(0, 5))
-
-        # Container for category buttons
-        self.category_buttons_container = tk.Frame(
-            category_frame,
-            bg=self.secondary_bg_color
-        )
-        self.category_buttons_container.pack(fill="x", padx=5, pady=5)
-
-        # Add Category Button
-        self.add_category_btn = tk.Button(
-            category_frame,
-            text="Add Category+",
-            command=self.add_category_dialog,
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 10),
-            relief="solid",
-            bd=1,
-            cursor="hand2"
-        )
-        self.add_category_btn.pack(pady=(5, 10), padx=10, fill="x")
-
-        # Create initial category buttons
-        self.update_category_buttons()
-
-    def show_multi_pc_dialog(self):
-        """Show dialog for adding multiple PCs"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Add Multiple PCs")
-        dialog.geometry("400x300")
-        dialog.configure(bg=self.primary_bg_color)
-        
-        # Make dialog modal
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        # Add explanation label
-        tk.Label(
-            dialog,
-            text="Enter PC names (one per line):",
-            bg=self.primary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12)
-        ).pack(pady=10, padx=10)
-
-        # Text area for PC names
-        text_area = tk.Text(
-            dialog,
-            height=10,
-            width=40,
-            bg=self.secondary_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12),
-            insertbackground=self.text_color
-        )
-        text_area.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
-
-        # Buttons frame
-        btn_frame = tk.Frame(dialog, bg=self.primary_bg_color)
-        btn_frame.pack(pady=10, padx=10, fill=tk.X)
-
-        # Add button
-        tk.Button(
-            btn_frame,
-            text="Add PCs",
-            command=lambda: self.add_multiple_pcs_from_dialog(text_area, dialog),
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12)
-        ).pack(side=tk.LEFT, expand=True, padx=5)
-
-        # Cancel button
-        tk.Button(
-            btn_frame,
-            text="Cancel",
-            command=dialog.destroy,
-            bg=self.button_bg_color,
-            fg=self.text_color,
-            font=('Helvetica', 12)
-        ).pack(side=tk.LEFT, expand=True, padx=5)
-
-    def add_multiple_pcs_from_dialog(self, text_area, dialog):
-        """Add multiple PCs from dialog text area"""
-        pc_text = text_area.get("1.0", tk.END).strip()
-        if pc_text:
-            pcs = pc_text.splitlines()
-            added_count = 0
-            for pc in pcs:
-                if self.vm_manager.add_pc(pc.strip()):
-                    added_count += 1
-            self.position_buttons()
-            dialog.destroy()
-            if added_count > 0:
-                messagebox.showinfo("Success", f"Added {added_count} PCs successfully!")
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
