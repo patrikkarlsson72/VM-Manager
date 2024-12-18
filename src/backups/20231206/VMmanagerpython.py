@@ -860,15 +860,6 @@ class VMManagerUI:
         self.tag_sidebar.bind("<<TagAdded>>", self.handle_tag_added)
         self.tag_sidebar.bind("<<TagRemoved>>", self.handle_tag_removed)
 
-        # Add tag drop binding
-        self.tag_sidebar.tag_canvas.bind("<<TagDropped>>", 
-            lambda e: self.handle_tag_drop(
-                e.widget.drag_data['tag'],
-                e.widget.winfo_pointerx() - self.canvas.winfo_rootx(),
-                e.widget.winfo_pointery() - self.canvas.winfo_rooty()
-            )
-        )
-
     def setup_ui(self):
         # Create header
         self.create_header()
@@ -913,10 +904,6 @@ class VMManagerUI:
         # Create left panel with theme colors
         self.left_frame = tk.Frame(self.root, width=200, bg=self.secondary_bg_color)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
-
-        # Add vertical border/divider after left_frame
-        self.sidebar_border = tk.Frame(self.root, width=2, bg=self.borders_and_dividers_color)
-        self.sidebar_border.pack(side=tk.LEFT, fill=tk.Y)
 
         # Settings button first
         self.settings_button = tk.Button(
@@ -985,7 +972,9 @@ class VMManagerUI:
             fill=self.button_bg_color,
             outline=status_color,
             width=2,
-            tags=(button_tag, "button", "button_bg"))  # Add background-specific tag
+            tags=(button_tag, "button", "button_bg")  # Add background-specific tag
+        )
+        
         # Status indicator circle (top right corner)
         indicator_radius = min(width, height) * 0.05
         indicator_radius = min(width, height) * 0.05
@@ -1201,10 +1190,6 @@ class VMManagerUI:
         self.header_frame.configure(bg=self.header_bg_color)
         self.header_container.configure(bg=self.header_bg_color)
         self.title_label.configure(bg=self.header_bg_color, fg=self.text_color)
-        
-        # Add this line to update the sidebar border color
-        if hasattr(self, 'sidebar_border'):
-            self.sidebar_border.configure(bg=self.border_color)
         
         # Update theme switch button if it exists
         if hasattr(self, 'theme_button'):  # Change 'theme_switch' to 'theme_button'
@@ -2085,7 +2070,6 @@ class VMManagerUI:
     def show_tag_manager(self):
         """Show dialog for managing tags"""
         dialog = tk.Toplevel(self.root)
-        self._current_tag_dialog = dialog
         dialog.title("Manage Tags")
         
         # Update icon loading logic
@@ -2203,8 +2187,6 @@ class VMManagerUI:
                 if self.active_tag_filters:
                     filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(self.active_tag_filters)
                     self.position_buttons(filtered_pcs)
-                # Add this line to update the sidebar
-                self.update_tag_filters()
 
         # Add tag frame (now at the bottom)
         add_frame = tk.Frame(dialog, bg=self.primary_bg_color)
@@ -2219,7 +2201,7 @@ class VMManagerUI:
             insertbackground=self.text_color
         )
         tag_entry.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 5))
-
+        
         # Add placeholder text
         tag_entry.insert(0, "Enter new tag...")
         tag_entry.config(fg='gray')
@@ -2340,9 +2322,6 @@ class VMManagerUI:
     def handle_tag_added(self, event):
         """Handle new tag added"""
         print(f"Tag added: {self.tag_sidebar.last_added_tag}")
-        self.vm_manager.tags = self.tag_manager.get_all_tags()
-        if hasattr(self, '_current_tag_dialog'):
-            self._current_tag_dialog.update_tag_list()
         self.position_buttons()
 
     def handle_tag_removed(self, event):
@@ -2595,87 +2574,6 @@ class VMManagerUI:
             dialog.destroy()
             if added_count > 0:
                 messagebox.showinfo("Success", f"Added {added_count} PCs successfully!")
-
-    def _create_tags_menu(self, menu, pc_name):
-        """Create the improved tags submenu"""
-        tags_menu = tk.Menu(menu, tearoff=0)
-        tags_menu.configure(**MenuStyle.get_themed_menu_style(self.current_theme))
-        
-        # Add New Tag option
-        tags_menu.add_command(
-            label="+ Add New Tag",
-            command=lambda: self.tag_sidebar._show_add_tag_dialog()
-        )
-        
-        tags_menu.add_separator()
-        tags_menu.add_label("Current Tags:")  # Header for existing tags
-        
-        # Add existing tags with checkboxes
-        machine_tags = self.vm_manager.get_machine_tags(pc_name)
-        for tag in sorted(self.vm_manager.tags):
-            is_tagged = tag in machine_tags
-            check_var = tk.BooleanVar(value=is_tagged)
-            tags_menu.add_checkbutton(
-                label=tag,
-                onvalue=1,
-                offvalue=0,
-                variable=check_var,
-                command=lambda t=tag: self.vm_manager.toggle_machine_tag(pc_name, t)
-            )
-        
-        tags_menu.add_separator()
-        tags_menu.add_command(
-            label="🏷️ Manage All Tags",
-            command=self.show_tag_manager
-        )
-        
-        return tags_menu
-
-    def _show_machine_context_menu(self, event, pc_name):
-        """Show context menu for machine"""
-        menu = tk.Menu(self.root, tearoff=0)
-        menu.configure(**MenuStyle.get_themed_menu_style(self.current_theme))
-        
-        # Category submenu (existing code remains the same)
-        category_menu = tk.Menu(menu, tearoff=0)
-        menu.add_cascade(label="Set Category", menu=category_menu)
-        for category in self.vm_manager.categories:
-            category_menu.add_command(
-                label=category,
-                command=lambda c=category: self.set_machine_category(pc_name, c)
-            )
-        
-        # Add the improved tags menu
-        menu.add_cascade(label="Manage Tags", menu=self._create_tags_menu(menu, pc_name))
-        
-        # Rest of the menu items remain the same
-        menu.add_command(label=f"Remove from '{pc_name}'", command=lambda: self.delete_pc(pc_name))
-        menu.add_cascade(label="Share", menu=self._create_share_menu(pc_name))
-        menu.add_command(label="Set RDP Path", command=lambda: self.set_rdp_path(pc_name))
-        menu.add_command(label="Edit Description", command=lambda: self.edit_description(pc_name))
-        menu.add_command(label="Delete", command=lambda: self.delete_pc(pc_name))
-        
-        menu.tk_popup(event.x_root, event.y_root)
-
-    def update_tag_filters(self):
-        """Update tag filters after tag changes"""
-        if hasattr(self, 'tag_sidebar'):
-            self.tag_sidebar.set_tags(list(self.vm_manager.tags))
-
-    def handle_tag_drop(self, tag_name, x, y):
-        """Handle tag being dropped on a machine button"""
-        # Find which machine button is under the drop position
-        items = self.canvas.find_overlapping(x, y, x, y)
-        for item in items:
-            tags = self.canvas.gettags(item)
-            for tag in tags:
-                if tag.startswith("button_"):
-                    machine_name = tag.replace("button_", "")
-                    # Add the tag to the machine
-                    self.vm_manager.add_machine_tag(machine_name, tag_name)
-                    self.position_buttons()
-                    return True
-        return False
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):

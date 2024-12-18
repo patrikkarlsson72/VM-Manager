@@ -117,6 +117,7 @@ To use the tagging system:
    - Select "Manage Tags"
    - Add new tags or select existing ones
    - Click Save or hit enter
+   - Or simply drag and drop tags onto machines
 
 2. Filter by tags:
    - Use the tag filter in the sidebar
@@ -124,10 +125,19 @@ To use the tagging system:
    - Use tag search to find specific tags
    - Clear filters to show all machines
 
+3. Tag Features:
+   - Drag-and-drop tags onto machines for quick assignment
+   - Hover over truncated tags to see full tag names
+   - Tag counter shows number of machines per tag
+   - Visual feedback when dragging tags
+   - Easy tag removal through right-click menu
+
 ### Tag Organization Tips
 1. Use consistent naming conventions
 2. Combine with categories for advanced organization
 3. Regular tag cleanup and management
+4. Use descriptive tags that work well with the drag-and-drop interface
+5. Monitor tag usage through the counter system
 
 ### Tag Search and Filtering
 - Quick search through tagged machines
