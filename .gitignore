@@ -93,3 +93,30 @@ coverage.xml
 *.manifest
 *.application
 *.deploy
+
+# Additional Python ignores
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+wheels/
+
+# Additional VM Manager specific
+user_data/
+.vm_manager_settings
+src/backups/
+
+# Additional IDE specific
+.project
+.pydevproject
+.settings/
+
+# Additional test files
+test_*.py
+
+# Additional documentation
+docs/images/*.psd
+
+# Additional temporary files
+*.tmp
+*~

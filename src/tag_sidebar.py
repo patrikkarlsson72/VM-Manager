@@ -187,17 +187,13 @@ class TagCanvas(tk.Canvas):
         return self.create_polygon(points, smooth=True, **kwargs)
 
     def draw_tag(self, tag, index, start_y):
-        """Draw a single tag with count"""
+        """Draw a single tag"""
         # Calculate position
         row = index // self.tags_per_row
         col = index % self.tags_per_row
         
         x = self.horizontal_padding + (col * (self.tag_width + self.tag_padding))
         y = start_y + (row * (self.tag_height + self.tag_padding))
-        
-        # Get count of machines with this tag
-        count = len([m for m in self.tag_sidebar.tag_manager.machine_tags 
-                    if tag in self.tag_sidebar.tag_manager.machine_tags[m]])
         
         # Create tag background
         bg_color = '#385167' if self.theme == "dark" else '#E3F2FD'
@@ -217,11 +213,9 @@ class TagCanvas(tk.Canvas):
         
         # Create font object for measurement
         font_obj = tk.font.Font(family='Segoe UI', size=11)
-        count_text = f" ({count})" if count > 0 else ""
-        count_width = font_obj.measure(count_text)
         
         # Calculate available width for tag text
-        available_width = self.tag_width - 20 - count_width  # 20 for padding
+        available_width = self.tag_width - 20  # 20 for padding
         
         # Truncate tag text if needed
         tag_text = tag
@@ -239,17 +233,6 @@ class TagCanvas(tk.Canvas):
             anchor='w',
             tags=("tag", f"tag_{index}")
         )
-        
-        # Draw count at fixed position on the right
-        if count > 0:
-            self.create_text(
-                x + self.tag_width - 10, y + (self.tag_height // 2),
-                text=count_text,
-                fill='white' if self.theme == "dark" else '#2B4B6F',
-                font=('Segoe UI', 11),
-                anchor='e',
-                tags=("tag", f"tag_{index}")
-            )
 
     def _lighten_color(self, color, factor):
         """Lighten a hex color by a factor"""
@@ -310,8 +293,11 @@ class TagCanvas(tk.Canvas):
                 'tag': self.tags[tag_index],
                 'start_x': event.x,
                 'start_y': event.y,
-                'dragging': False  # Start as not dragging
+                'dragging': False
             }
+            
+            # Create drag image
+            self.drag_image = DragImage(self.master, self.tags[tag_index], self.theme)
 
     def _on_tag_drag_motion(self, event):
         """Handle tag being dragged"""
@@ -322,33 +308,17 @@ class TagCanvas(tk.Canvas):
                 self.drag_data['dragging'] = True
                 self.configure(cursor='hand2')
                 
-                # Delete previous ghost tag if it exists
-                if hasattr(self, 'ghost_tag'):
-                    self.delete('ghost_tag')
-                
-                # Create ghost tag following cursor
-                ghost_x = event.x
-                ghost_y = event.y
-                self.create_rounded_rectangle(
-                    ghost_x - 60, ghost_y - 20,  # Center around cursor
-                    ghost_x + 60, ghost_y + 20,
-                    self.corner_radius,
-                    fill='#385167' if self.theme == "dark" else '#E3F2FD',
-                    stipple='gray50',  # Makes it semi-transparent
-                    tags='ghost_tag'
-                )
-                # Add tag text
-                self.create_text(
-                    ghost_x, ghost_y,
-                    text=self.drag_data['tag'],
-                    fill='white' if self.theme == "dark" else '#2B4B6F',
-                    font=('Segoe UI', 11),
-                    tags='ghost_tag'
-                )
+                # Move the drag image
+                if hasattr(self, 'drag_image'):
+                    self.drag_image.show()
+                    self.drag_image.move(event.x_root, event.y_root)
 
     def _on_tag_drag_end(self, event):
         """End tag drag"""
         if hasattr(self, 'drag_data'):
+            if hasattr(self, 'drag_image'):
+                self.drag_image.destroy()
+                del self.drag_image
             if not self.drag_data.get('dragging', False):
                 # It was a click, not a drag - handle selection
                 tag_index = self._get_tag_at_position(event.x, event.y)
@@ -377,8 +347,6 @@ class TagCanvas(tk.Canvas):
             # Clean up
             self.configure(cursor='')
             del self.drag_data
-        if hasattr(self, 'ghost_tag'):
-            self.delete('ghost_tag')
 
         # Reset all button effects in main canvas
         if self.main_canvas:  # Check if we have a reference
@@ -386,6 +354,52 @@ class TagCanvas(tk.Canvas):
                 self.main_canvas.itemconfig(item,
                     outline=self.tag_sidebar.master.master.master.borders_and_dividers_color,
                     width=2)
+
+class DragImage:
+    def __init__(self, root, text, theme):
+        # Create floating window
+        self.window = tk.Toplevel(root)
+        self.window.overrideredirect(True)
+        self.window.attributes('-alpha', 0.8)  # Semi-transparent
+        
+        # Create tag label with visual styling
+        self.label = tk.Label(
+            self.window,
+            text=f"🏷️ {text}",
+            bg='#385167' if theme == "dark" else '#E3F2FD',
+            fg='white' if theme == "dark" else '#2B4B6F',
+            padx=8,
+            pady=4,
+            font=('Segoe UI', 11),
+            relief="raised",
+            borderwidth=1
+        )
+        self.label.pack()
+        
+        # Make the window float
+        self.window.lift()
+        self.window.wm_attributes('-topmost', True)
+        
+        # Hide initially
+        self.hide()
+        
+    def move(self, x, y):
+        """Move the drag image to follow cursor"""
+        offset_x = 15  # Offset from cursor
+        offset_y = 10
+        self.window.geometry(f"+{x + offset_x}+{y + offset_y}")
+        
+    def show(self):
+        """Show the drag image"""
+        self.window.deiconify()
+        
+    def hide(self):
+        """Hide the drag image"""
+        self.window.withdraw()
+        
+    def destroy(self):
+        """Clean up the drag image"""
+        self.window.destroy()
 
 class TagSidebar(tk.Frame):
     def __init__(self, parent, tag_manager, main_canvas=None):

@@ -52,6 +52,7 @@ class TagManager:
             
         if tag_name not in self.machine_tags[machine_name]:
             self.machine_tags[machine_name].append(tag_name)
+            # Save changes to disk
             self.file_manager.save_machine_tags(self.machine_tags)
             return True
         return False

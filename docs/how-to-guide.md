@@ -56,32 +56,35 @@ To organize your machines into categories:
 
 ![Categories](images/categories.png)
 
-1. Click "Manage Categories" in the sidebar
+1. Click the large "Add Category+" button in the sidebar
 2. Add a new category:
-   - Click "Add Category"
    - Enter category name
-   - Choose category color (optional)
-   - Click Save
+   - Choose category color from the color palette
+   - Click OK to create
 
-![Categories](images/set-categories.png)
+3. Category Features:
+   - Hover effects for better interaction
+   - Checkmark indicators for selected categories
+   - Color indicators on machine tiles showing category assignment
+   - Right-click menu for category management
 
-3. Assign machines to categories:
-   - Right-click any machine
-   - Select "Set Category"
-   - Choose from available categories
-4. Filter by category:
-   - Click category name in sidebar
-   - View only machines in that category
-   - Click "All Machines" to clear filter
+4. Managing Existing Categories:
+   - Right-click any category for options:
+     * Rename category
+     * Change category color
+     * Delete category
+   - Selected categories show checkmark indicators
+   - Click again to deselect a category
 
 ### Category Organization
 Tips for effective category management:
 
 1. Use clear, descriptive category names
-2. Assign colors for visual organization
-3. Categories can be nested (subcategories)
-4. Machines can belong to multiple categories
-5. Categories can be edited or deleted through the management panel
+2. Assign distinct colors for visual organization
+3. Use the category indicator on machine tiles for quick reference
+4. Categories can be renamed without losing assignments
+5. Click categories to toggle filtering
+6. Categories can be edited or deleted through the right-click menu
 ## Managing Tags
 
 ### Creating and Managing Tags
@@ -90,32 +93,48 @@ To use the tagging system:
 ![Tags](images/tags.png)
 
 1. Add tags:
-- Click "Manage Tags" in the sidebar
-- Enter new tag name in the input field
-- Click "Add Tag" or press Enter
-- Tags will appear in the list above
+   - Click "Add Tag+" in the sidebar
+   - Enter new tag name in the dialog
+   - Click "OK" or press Enter
+   - Tags will appear in the sidebar grid layout
 
 2. Assign tags to machines:
-- Right-click any machine
-- Select "Tags"
-- Check the tag from the list to assign it. To remove a tag, click on it again.
-- Changes are saved automatically
+   - Method 1: Drag and drop
+     * Drag a tag from the sidebar onto any machine
+     * The tag will be assigned instantly
+   - Method 2: Right-click menu
+     * Right-click any machine
+     * Select "Manage Tags"
+     * Check/uncheck tags to assign/remove them
 
 3. Filter by tags:
-- Click tags in the sidebar to filter
-- Select multiple tags to see machines with any of those tags
-- Click "Reset Filter" to clear all tag filters or click on the tag name in the sidebar
+   - Click tags in the sidebar to filter machines
+   - Select multiple tags to combine filters
+   - Selected tags will be highlighted
+   - Click a selected tag again to deselect it
+   - Machines must match all selected tags to be shown
+
+### Managing Existing Tags
+- Right-click any tag in the sidebar for options:
+  * Remove tag (will remove from all machines)
+  * View machines using this tag
+- Hover over tags to see tooltips with additional information
+- Tags are automatically saved and persist between sessions
 
 ### Tag Organization Tips
 1. Use consistent naming conventions
 2. Keep tags simple and descriptive
-3. Regular cleanup of unused tags
-4. Use tags alongside categories for better organization
+3. Combine tags with categories for better organization
+4. Use drag-and-drop for quick assignment
+5. Regular cleanup of unused tags
+6. Multiple tags can be assigned to the same machine
 
-### Managing Existing Tags
-- View all tags in the tag manager
-- Delete tags using the × button next to each tag
-- Deleting a tag removes it from all machines
+### Tag Filtering Strategy
+- Tags work alongside category filters
+- Combining multiple tags creates more specific filters
+- Active filters are visually highlighted
+- Clear filters by deselecting tags
+- Tag filters update the machine view in real-time
 ## Connecting to Machines
 
 ### Basic Connection

@@ -1,227 +1,372 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VM Manager - How To Guide</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #0366d6;
-            --background-color: #ffffff;
-            --code-background: #f8f9fa;
-            --border-color: #e1e4e8;
-            --text-color: #24292e;
-            --text-secondary: #586069;
-        }
+<title>how-to-guide.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-            color: var(--text-color);
-            background-color: var(--background-color);
-        }
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
-        .content {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
 
-        h1, h2, h3, h4 {
-            color: var(--primary-color);
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            font-weight: 600;
-            line-height: 1.25;
-            scroll-margin-top: 2rem;
-        }
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
 
-        h1 {
-            font-size: 2.5rem;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
 
-        h2 {
-            font-size: 2rem;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.3rem;
-        }
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
 
-        h3 {
-            font-size: 1.5rem;
-            color: #34495e;
-        }
+body.showEditorSelection .code-line {
+	position: relative;
+}
 
-        img {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 5px;
-            margin: 1rem 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease;
-        }
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
 
-        img:hover {
-            transform: scale(1.01);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
 
-        code {
-            background-color: var(--code-background);
-            padding: 0.2em 0.4em;
-            border-radius: 6px;
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            font-size: 0.9em;
-            color: #d63384;
-        }
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
 
-        pre {
-            background-color: var(--code-background);
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            border: 1px solid var(--border-color);
-            margin: 1rem 0;
-        }
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
 
-        pre code {
-            background-color: transparent;
-            padding: 0;
-            color: var(--text-color);
-        }
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 1rem 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
 
-        th, td {
-            border: 1px solid var(--border-color);
-            padding: 0.75rem;
-            text-align: left;
-        }
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
 
-        th {
-            background-color: var(--code-background);
-            font-weight: 600;
-        }
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
 
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
 
-        tr:hover {
-            background-color: #f1f3f5;
-        }
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
 
-        blockquote {
-            border-left: 4px solid var(--secondary-color);
-            padding: 0.5rem 1rem;
-            color: var(--text-secondary);
-            margin: 1rem 0;
-            background-color: var(--code-background);
-            border-radius: 0 8px 8px 0;
-        }
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
 
-        ul, ol {
-            padding-left: 1.5rem;
-            margin: 1rem 0;
-        }
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
 
-        li {
-            margin: 0.5rem 0;
-        }
+a {
+	text-decoration: none;
+}
 
-        a {
-            color: var(--secondary-color);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
+a:hover {
+	text-decoration: underline;
+}
 
-        a:hover {
-            color: #0056b3;
-            text-decoration: underline;
-        }
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
 
-        strong {
-            color: var(--primary-color);
-            font-weight: 600;
-        }
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
 
-        em {
-            color: var(--text-secondary);
-        }
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
 
-        .toc {
-            background-color: var(--code-background);
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin: 1.5rem 0;
-            border: 1px solid var(--border-color);
-        }
+h1, h2, h3 {
+	font-weight: normal;
+}
 
-        @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-            
-            .content {
-                padding: 1rem;
-            }
+table {
+	border-collapse: collapse;
+}
 
-            h1 {
-                font-size: 2rem;
-            }
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
 
-            h2 {
-                font-size: 1.75rem;
-            }
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
 
-            h3 {
-                font-size: 1.25rem;
-            }
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
 
-            pre {
-                max-width: calc(100vw - 2rem);
-            }
-        }
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
 
-        /* Print styles */
-        @media print {
-            body {
-                padding: 0;
-                font-size: 12pt;
-            }
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
 
-            .content {
-                box-shadow: none;
-                padding: 0;
-            }
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
 
-            img {
-                max-width: 500px;
-            }
-        }
-    </style>
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
-    <div class="content">
-        <h1 id="vm-manager-how-to-guide">VM Manager - How To Guide</h1>
-<p><img alt="VM Manager Logo" src="images/vm_logo.png" /></p>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="vm-manager---how-to-guide">VM Manager - How To Guide</h1>
+<p><img src="images/vm_logo.png" alt="VM Manager Logo"></p>
 <h2 id="table-of-contents">Table of Contents</h2>
 <ul>
 <li><a href="#initial-setup">Initial Setup</a></li>
@@ -237,15 +382,15 @@
 <h2 id="initial-setup">Initial Setup</h2>
 <h3 id="first-launch">First Launch</h3>
 <p>When you first launch VM Manager, you'll be prompted to select a default RDP file:</p>
-<p><img alt="Initial Setup" src="images/initial-setup.png" /></p>
+<p><img src="images/initial-setup.png" alt="Initial Setup"></p>
 <ol>
-<li>Click "OK" on the prompt</li>
+<li>Click &quot;OK&quot; on the prompt</li>
 <li>Browse to select your default RDP file</li>
 <li>The application will create necessary folders automatically</li>
 </ol>
 <h3 id="theme-selection">Theme Selection</h3>
 <p>VM Manager supports both light and dark themes:</p>
-<p><img alt="Theme Selection" src="images/theme-selection.png" /></p>
+<p><img src="images/theme-selection.png" alt="Theme Selection"></p>
 <ol>
 <li>Click the theme toggle (☀️/🌙) in the header</li>
 <li>Theme changes apply immediately</li>
@@ -254,97 +399,146 @@
 <h2 id="adding-virtual-machines">Adding Virtual Machines</h2>
 <h3 id="adding-a-single-machine">Adding a Single Machine</h3>
 <p>You can add machines one at a time using the sidebar:</p>
-<p><img alt="Add Single Machine" src="images/add-single.png" /></p>
+<p><img src="images/add-single.png" alt="Add Single Machine"></p>
 <ol>
-<li>Enter the machine name in the "Add Single PC" field</li>
-<li>Click "Add PC"</li>
+<li>Enter the machine name in the &quot;Add Single PC&quot; field</li>
+<li>Click &quot;Add PC&quot;</li>
 <li>The machine will appear in the main view</li>
 </ol>
 <h3 id="adding-multiple-machines">Adding Multiple Machines</h3>
 <p>For batch additions:</p>
-<p><img alt="Add Multiple Machines" src="images/add-multiple.png" /></p>
+<p><img src="images/add-multiple.png" alt="Add Multiple Machines"></p>
 <ol>
 <li>Enter machine names in the text area (one per line)</li>
-<li>Click "Add PCs"</li>
+<li>Click &quot;Add PCs&quot;</li>
 <li>All machines will be added to the main view</li>
 </ol>
 <h2 id="managing-categories">Managing Categories</h2>
 <h3 id="creating-and-managing-categories">Creating and Managing Categories</h3>
 <p>To organize your machines into categories:</p>
-<p><img alt="Categories" src="images/categories.png" /></p>
+<p><img src="images/categories.png" alt="Categories"></p>
 <ol>
-<li>Click "Manage Categories" in the sidebar</li>
-<li>Add a new category:</li>
-<li>Click "Add Category"</li>
+<li>
+<p>Click the large &quot;Add Category+&quot; button in the sidebar</p>
+</li>
+<li>
+<p>Add a new category:</p>
+<ul>
 <li>Enter category name</li>
-<li>Choose category color (optional)</li>
-<li>Click Save</li>
-</ol>
-<p><img alt="Categories" src="images/set-categories.png" /></p>
-<ol>
-<li>Assign machines to categories:</li>
-<li>Right-click any machine</li>
-<li>Select "Set Category"</li>
-<li>Choose from available categories</li>
-<li>Filter by category:</li>
-<li>Click category name in sidebar</li>
-<li>View only machines in that category</li>
-<li>Click "All Machines" to clear filter</li>
+<li>Choose category color from the color palette</li>
+<li>Click OK to create</li>
+</ul>
+</li>
+<li>
+<p>Category Features:</p>
+<ul>
+<li>Hover effects for better interaction</li>
+<li>Checkmark indicators for selected categories</li>
+<li>Color indicators on machine tiles showing category assignment</li>
+<li>Right-click menu for category management</li>
+</ul>
+</li>
+<li>
+<p>Managing Existing Categories:</p>
+<ul>
+<li>Right-click any category for options:
+<ul>
+<li>Rename category</li>
+<li>Change category color</li>
+<li>Delete category</li>
+</ul>
+</li>
+<li>Selected categories show checkmark indicators</li>
+<li>Click again to deselect a category</li>
+</ul>
+</li>
 </ol>
 <h3 id="category-organization">Category Organization</h3>
-<p>Tips for effective category management:</p>
+<p><img src="images/categories_colors.png" alt="Categories">
+Tips for effective category management:</p>
 <ol>
 <li>Use clear, descriptive category names</li>
-<li>Assign colors for visual organization</li>
-<li>Categories can be nested (subcategories)</li>
-<li>Machines can belong to multiple categories</li>
-<li>Categories can be edited or deleted through the management panel</li>
+<li>Assign distinct colors for visual organization</li>
+<li>Use the category indicator on machine tiles for quick reference</li>
+<li>Categories can be renamed without losing assignments</li>
+<li>Click categories to toggle filtering</li>
+<li>Categories can be edited or deleted through the right-click menu</li>
 </ol>
 <h2 id="managing-tags">Managing Tags</h2>
 <h3 id="creating-and-managing-tags">Creating and Managing Tags</h3>
 <p>To use the tagging system:</p>
-<p><img alt="Tags" src="images/tags.png" /></p>
+<p><img src="images/tags.png" alt="Tags"></p>
 <ol>
-<li>Add tags:</li>
-<li>Click "Manage Tags" in the sidebar</li>
-<li>Enter new tag name in the input field</li>
-<li>Click "Add Tag" or press Enter</li>
 <li>
-<p>Tags will appear in the list above</p>
+<p>Add tags:</p>
+<ul>
+<li>Click &quot;Add Tag+&quot; in the sidebar</li>
+<li>Enter new tag name in the dialog</li>
+<li>Click &quot;OK&quot; or press Enter</li>
+<li>Tags will appear in the sidebar grid layout</li>
+</ul>
 </li>
 <li>
 <p>Assign tags to machines:</p>
+<ul>
+<li>Method 1: Drag and drop
+<ul>
+<li>Drag a tag from the sidebar onto any machine</li>
+<li>The tag will be assigned instantly</li>
+</ul>
 </li>
+<li>Method 2: Right-click menu
+<ul>
 <li>Right-click any machine</li>
-<li>Select "Tags"</li>
-<li>Check the tag from the list to assign it. To remove a tag, click on it again.</li>
-<li>
-<p>Changes are saved automatically</p>
+<li>Select &quot;Manage Tags&quot;</li>
+<li>Check/uncheck tags to assign/remove them</li>
+</ul>
+</li>
+</ul>
 </li>
 <li>
 <p>Filter by tags:</p>
+<ul>
+<li>Click tags in the sidebar to filter machines</li>
+<li>Select multiple tags to combine filters</li>
+<li>Selected tags will be highlighted</li>
+<li>Click a selected tag again to deselect it</li>
+<li>Machines must match all selected tags to be shown</li>
+</ul>
 </li>
-<li>Click tags in the sidebar to filter</li>
-<li>Select multiple tags to see machines with any of those tags</li>
-<li>Click "Reset Filter" to clear all tag filters or click on the tag name in the sidebar</li>
 </ol>
+<h3 id="managing-existing-tags">Managing Existing Tags</h3>
+<ul>
+<li>Right-click any tag in the sidebar for options:
+<ul>
+<li>Remove tag (will remove from all machines)</li>
+<li>View machines using this tag</li>
+</ul>
+</li>
+<li>Hover over tags to see tooltips with additional information</li>
+<li>Tags are automatically saved and persist between sessions</li>
+</ul>
 <h3 id="tag-organization-tips">Tag Organization Tips</h3>
 <ol>
 <li>Use consistent naming conventions</li>
 <li>Keep tags simple and descriptive</li>
+<li>Combine tags with categories for better organization</li>
+<li>Use drag-and-drop for quick assignment</li>
 <li>Regular cleanup of unused tags</li>
-<li>Use tags alongside categories for better organization</li>
+<li>Multiple tags can be assigned to the same machine</li>
 </ol>
-<h3 id="managing-existing-tags">Managing Existing Tags</h3>
+<h3 id="tag-filtering-strategy">Tag Filtering Strategy</h3>
 <ul>
-<li>View all tags in the tag manager</li>
-<li>Delete tags using the × button next to each tag</li>
-<li>Deleting a tag removes it from all machines</li>
+<li>Tags work alongside category filters</li>
+<li>Combining multiple tags creates more specific filters</li>
+<li>Active filters are visually highlighted</li>
+<li>Clear filters by deselecting tags</li>
+<li>Tag filters update the machine view in real-time</li>
 </ul>
 <h2 id="connecting-to-machines">Connecting to Machines</h2>
 <h3 id="basic-connection">Basic Connection</h3>
 <p>To connect to a machine:</p>
-<p><img alt="Connect to Machine" src="images/connect.png" /></p>
+<p><img src="images/connect.png" alt="Connect to Machine"></p>
 <ol>
 <li>Click on any machine tile</li>
 <li>The RDP connection will launch automatically</li>
@@ -352,17 +546,17 @@
 </ol>
 <h3 id="custom-rdp-connections">Custom RDP Connections</h3>
 <p>To use a specific RDP configuration:</p>
-<p><img alt="Custom RDP" src="images/custom-rdp.png" /></p>
+<p><img src="images/custom-rdp.png" alt="Custom RDP"></p>
 <ol>
 <li>Right-click the machine</li>
-<li>Select "Set RDP Path"</li>
+<li>Select &quot;Set RDP Path&quot;</li>
 <li>Choose your custom RDP file</li>
 <li>Future connections will use this configuration</li>
 </ol>
 <h2 id="managing-machines">Managing Machines</h2>
 <h3 id="context-menu-options">Context Menu Options</h3>
 <p>Right-click any machine to access management options:</p>
-<p><img alt="Context Menu" src="images/context-menu.png" /></p>
+<p><img src="images/context-menu.png" alt="Context Menu"></p>
 <ol>
 <li>Add/Edit Description</li>
 <li>Set Custom RDP Path</li>
@@ -371,42 +565,49 @@
 </ol>
 <h3 id="adding-descriptions">Adding Descriptions</h3>
 <p>To add a description:</p>
-<p><img alt="Add Description" src="images/add-description.png" /></p>
+<p><img src="images/add-description.png" alt="Add Description"></p>
 <ol>
 <li>Right-click the machine</li>
-<li>Select "Add or Edit Description"</li>
+<li>Select &quot;Add or Edit Description&quot;</li>
 <li>Enter your description</li>
 <li>Click OK</li>
 </ol>
 <h2 id="customizing-settings">Customizing Settings</h2>
 <h3 id="settings-panel">Settings Panel</h3>
-<p><img alt="Settings Panel" src="images/settings-panel.png" /></p>
+<p><img src="images/settings-panel.png" alt="Settings Panel"></p>
 <p>Access application settings:</p>
-<p><img alt="Settings Panel Button" src="images/settings-panel-button.png" /></p>
+<p><img src="images/settings-panel-button.png" alt="Settings Panel Button"></p>
 <ol>
 <li>Click the Settings button in the sidebar</li>
-<li>Settings are organized into categories:</li>
-<li><strong>Machine Settings</strong>:<ul>
+<li>Settings are organized into categories:
+<ul>
+<li><strong>Machine Settings</strong>:
+<ul>
 <li>Default RDP File: Choose a different RDP template file</li>
 <li>Machine sharing options</li>
 <li>Custom RDP configurations</li>
 </ul>
 </li>
-<li><strong>Application Settings</strong>:<ul>
+<li><strong>Application Settings</strong>:
+<ul>
 <li>Status Refresh Interval: Control check frequency</li>
 <li>Data Directory: Change storage location</li>
 <li>Theme preferences</li>
 </ul>
 </li>
-<li><strong>User Preferences</strong>:<ul>
+<li><strong>User Preferences</strong>:
+<ul>
 <li>Display options</li>
 <li>Behavior settings</li>
 </ul>
 </li>
-<li><strong>Import/Export</strong>:<ul>
+<li><strong>Import/Export</strong>:
+<ul>
 <li>Settings backup/restore</li>
 <li>Machine list management</li>
 <li>Shared configurations</li>
+</ul>
+</li>
 </ul>
 </li>
 </ol>
@@ -415,7 +616,7 @@
 <ol>
 <li>Open Settings</li>
 <li>Navigate to Machine Settings</li>
-<li>Click "Change Default RDP File"</li>
+<li>Click &quot;Change Default RDP File&quot;</li>
 <li>Browse to select your new RDP template file</li>
 <li>Click OK to save</li>
 </ol>
@@ -425,7 +626,7 @@
 <ol>
 <li>Open Settings</li>
 <li>Go to Application Settings</li>
-<li>Find the "Status Refresh Interval" setting</li>
+<li>Find the &quot;Status Refresh Interval&quot; setting</li>
 <li>Enter your preferred interval in seconds</li>
 <li>Click Save</li>
 </ol>
@@ -433,23 +634,26 @@
 <h2 id="sharing-machines">Sharing Machines</h2>
 <h3 id="exporting-machine-configurations">Exporting Machine Configurations</h3>
 <p>To share machine settings with others:</p>
-<p><img alt="Share Machine" src="images/share-machine.png" /></p>
+<p><img src="images/share-machine.png" alt="Share Machine"></p>
 <ol>
 <li>Right-click the machine you want to share</li>
-<li>Select "Share Machine Configuration"</li>
-<li>Choose which settings to include:</li>
+<li>Select &quot;Share Machine Configuration&quot;</li>
+<li>Choose which settings to include:
+<ul>
 <li>RDP configuration</li>
 <li>Machine description</li>
 <li>Custom paths</li>
-<li>Click "Export" and choose save location</li>
+</ul>
+</li>
+<li>Click &quot;Export&quot; and choose save location</li>
 </ol>
 <h3 id="importing-shared-machines">Importing Shared Machines</h3>
 <p>To import shared machine configurations:</p>
-<p><img alt="Import Machine" src="images/import-machine.png" /></p>
+<p><img src="images/import-machine.png" alt="Import Machine"></p>
 <ol>
 <li>Open Settings</li>
 <li>Go to Import/Export section</li>
-<li>Click "Import Shared Configuration"</li>
+<li>Click &quot;Import Shared Configuration&quot;</li>
 <li>Browse to the shared configuration file</li>
 <li>Review and confirm the import</li>
 </ol>
@@ -491,28 +695,32 @@
 </ol>
 <h3 id="troubleshooting-common-issues">Troubleshooting Common Issues</h3>
 <ol>
-<li><strong>Connection Problems</strong></li>
+<li>
+<p><strong>Connection Problems</strong></p>
+<ul>
 <li>Verify machine name</li>
 <li>Check network connectivity</li>
-<li>
-<p>Confirm RDP port access</p>
+<li>Confirm RDP port access</li>
+</ul>
 </li>
 <li>
 <p><strong>Sharing Issues</strong></p>
-</li>
+<ul>
 <li>Verify file permissions</li>
 <li>Check configuration completeness</li>
-<li>
-<p>Ensure compatible settings</p>
+<li>Ensure compatible settings</li>
+</ul>
 </li>
 <li>
 <p><strong>Settings Issues</strong></p>
-</li>
+<ul>
 <li>Clear application cache</li>
 <li>Verify write permissions</li>
 <li>Check available disk space</li>
+</ul>
+</li>
 </ol>
 <p><em>For additional support, consult the full documentation or contact support.</em></p>
-    </div>
+
 </body>
 </html>

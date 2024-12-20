@@ -186,15 +186,14 @@ class FileManager:
         self.machine_rdp_file_path = os.path.join(self.data_dir, "machine_rdp.txt")
 
     def load_categories(self):
-        """Load categories from file and remove duplicates"""
-        categories = ["Default"]  # Always start with Default
+        """Load categories from file"""
         if os.path.exists(self.categories_file_path):
             with open(self.categories_file_path, "r") as file:
-                # Add non-duplicate categories that aren't "Default"
-                for category in file.read().splitlines():
-                    if category not in categories and category != "Default":
-                        categories.append(category)
+                categories = [line.strip() for line in file]
+                if "Default" not in categories:
+                    categories.insert(0, "Default")
         return categories
+        return ["Default"]
 
     def save_categories(self, categories):
         """Save categories to file"""
@@ -243,6 +242,19 @@ class FileManager:
         with open(self.machine_tags_file_path, "w") as file:
             for machine, tags in machine_tags.items():
                 file.write(f"{machine}:{','.join(tags)}\n")
+
+    def save_category_colors(self, category_colors):
+        """Save category colors to file"""
+        with open(os.path.join(self.data_dir, 'category_colors.json'), 'w') as f:
+            json.dump(category_colors, f)
+
+    def load_category_colors(self):
+        """Load category colors from file"""
+        try:
+            with open(os.path.join(self.data_dir, 'category_colors.json'), 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}  # Return empty dict if file doesn't exist
 
     # ... other file operations ...
 
@@ -305,6 +317,7 @@ class VMManager:
         self.tags = self.file_manager.load_tags()
         self.machine_tags = self.file_manager.load_machine_tags()
         self.active_tag_filters = set()  # Add this to track multiple selected tags
+        self.category_colors = self.file_manager.load_category_colors()  # Add this line
 
     def connect_to_pc(self, pc_name):
         """Connect to a PC and track the connection"""
@@ -393,11 +406,13 @@ class VMManager:
         """Get RDP path for a machine"""
         return self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
 
-    def add_category(self, category_name):
+    def add_category(self, category_name, category_color):
         """Add a new category"""
         if category_name and category_name not in self.categories:
             self.categories.append(category_name)
+            self.category_colors[category_name] = category_color  # Store the color
             self.file_manager.save_categories(self.categories)
+            self.file_manager.save_category_colors(self.category_colors)  # Save colors
             return True
         return False
 
@@ -695,27 +710,33 @@ class VMManager:
         """Remove a category and update machine categories"""
         if category in self.categories and category != "Default":
             # Move machines from this category to Default
-            for machine in self.get_machines_by_category(category):
-                machine.category = "Default"
+            for machine in list(self.machine_categories.keys()):
+                if self.machine_categories[machine] == category:
+                    self.machine_categories[machine] = "Default"
             
             # Remove the category
             self.categories.remove(category)
             
             # Save changes
-            self.save_data()
+            self.file_manager.save_categories(self.categories)
+            self.file_manager.save_machine_categories(self.machine_categories)
             return True
         return False
 
     def filter_by_category(self, category_name):
         """Filter machines by category"""
-        self.current_filter = category_name  # Store current category filter
-        
-        # Get machines for the selected category
-        filtered_pcs = self.get_machines_by_category(category_name)
+        # If clicking the same category again, deselect it
+        if self.current_filter == category_name:
+            self.current_filter = None  # Clear the filter
+            filtered_pcs = self.vm_manager.pc_names  # Show all PCs
+        else:
+            self.current_filter = category_name  # Set new filter
+            # Get machines for the selected category
+            filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
         
         # If there are active tag filters, apply them as well
         if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
-            tag_filtered_pcs = self.get_machines_by_multiple_tags(list(self.active_tag_filters))
+            tag_filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
             # Show only machines that match both category and tag filters
             filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered_pcs]
         
@@ -760,11 +781,61 @@ class VMManager:
         self.position_buttons(filtered_pcs)
 
 class VMManagerUI:
+    # Update the CATEGORY_COLORS dictionary to have both light and dark theme variants
+    CATEGORY_COLORS = {
+        "dark": {
+            "Blue": "#1E90FF",    # Brighter blue for dark theme
+            "Green": "#32CD32",   # Brighter green for dark theme
+            "Purple": "#9370DB",  # Brighter purple for dark theme
+            "Orange": "#FF8C00",  # Brighter orange for dark theme
+            "Pink": "#FF69B4",    # Brighter pink for dark theme
+            "Teal": "#20B2AA",    # Brighter teal for dark theme
+            "Yellow": "#FFD700",  # Brighter yellow for dark theme
+            "Red": "#FF4500"      # Brighter red for dark theme
+        },
+        "light": {
+            "Blue": "#89CFF0",    # Light blue
+            "Green": "#90EE90",   # Light green
+            "Purple": "#E6E6FA",  # Lavender
+            "Orange": "#FFB347",  # Pastel orange
+            "Pink": "#FFB6C1",    # Light pink
+            "Teal": "#80CBC4",    # Light teal
+            "Yellow": "#F0E68C",  # Khaki
+            "Red": "#FF9999"      # Light red
+        }
+    }
     """Main application UI"""
     def __init__(self, vm_manager):
         self.vm_manager = vm_manager
         self.root = tk.Tk()
         self.root.title("VM Manager")
+        
+        # Remove the duplicate theme initialization and use only one
+        self.current_theme = self.vm_manager.settings_manager.settings.get("theme", "dark")
+        
+        # Save the theme preference if it's not already saved
+        if "theme" not in self.vm_manager.settings_manager.settings:
+            self.vm_manager.settings_manager.settings["theme"] = self.current_theme
+            self.vm_manager.settings_manager.save_settings()
+        
+        # Get theme colors
+        theme = THEMES[self.current_theme]
+        
+        # Initialize colors from theme
+        self.primary_bg_color = theme["primary_bg"]
+        self.secondary_bg_color = theme["secondary_bg"]
+        self.button_bg_color = theme["button_bg"]
+        self.text_color = theme["text"]
+        self.hover_active_color = theme["hover_active"]
+        self.border_color = theme["borders"]
+        self.header_bg_color = theme["header_bg"]
+        
+        # Configure root window with theme
+        self.root.configure(bg=self.primary_bg_color)
+        
+        # Remove the second theme initialization that was here before
+        self.current_filter = None
+        self.current_tag_filter = None
         
         # Update icon loading logic
         try:
@@ -807,24 +878,6 @@ class VMManagerUI:
         
         # Initialize theme-related attributes
         self.current_theme = "dark"  # default theme
-        self.current_filter = None
-        self.current_tag_filter = None
-        
-        # Get theme colors
-        theme = THEMES[self.current_theme]
-        self.primary_bg_color = theme["primary_bg"]
-        self.secondary_bg_color = theme["secondary_bg"]
-        self.button_bg_color = theme["button_bg"]
-        self.text_color = theme["text"]
-        self.hover_active_color = theme["hover_active"]
-        self.border_color = theme["borders"]
-        
-        # Rest of your initialization code...
-        
-        # Set the root reference in VMManager
-        self.vm_manager.root = self.root  # Add this line
-        
-        self.root.geometry("1000x700")
         
         # Load saved theme or use default
         saved_theme = self.vm_manager.settings_manager.settings.get("theme", "dark")
@@ -848,6 +901,7 @@ class VMManagerUI:
         self.tag_manager = TagManager(self.vm_manager.file_manager)
         
         self.setup_ui()  # This will create the sidebar with tag system
+        self.update_category_buttons()  # Add this line to ensure proper initial colors
         
         # Move these after setup_ui
         self.running_indicators = {}
@@ -902,7 +956,7 @@ class VMManagerUI:
         self.title_label.pack(side=tk.LEFT, padx=20)
 
         # Theme switch
-        self.theme_switch = ThemeSwitch(self.header_container, command=self.toggle_theme)
+        self.theme_switch = ThemeSwitch(self.header_container, command=self.switch_theme)
         self.theme_switch.pack(side=tk.RIGHT, padx=20)
 
         # Underline
@@ -970,7 +1024,7 @@ class VMManagerUI:
         self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
 
     def create_rounded_button(self, text, last_used, description, command, x, y, width, height, corner_radius, 
-                                 title_font_size, info_font_size, status_font_size):
+                             title_font_size, info_font_size, status_font_size):
         """Create a rounded button with responsive text sizes"""
         # Get machine status
         is_running = self.vm_manager.get_machine_status(text)
@@ -986,8 +1040,8 @@ class VMManagerUI:
             outline=status_color,
             width=2,
             tags=(button_tag, "button", "button_bg"))  # Add background-specific tag
+        
         # Status indicator circle (top right corner)
-        indicator_radius = min(width, height) * 0.05
         indicator_radius = min(width, height) * 0.05
         indicator_x = x + width - (indicator_radius * 2)
         indicator_y = y + (indicator_radius * 2)
@@ -1001,11 +1055,28 @@ class VMManagerUI:
             outline=status_color,
             tags=(button_tag, "button"))
 
+        # Category color indicator (bottom left corner)
+        category = self.vm_manager.get_machine_category(text)
+        if category != "Default":
+            category_color = self.vm_manager.category_colors.get(category, self.button_bg_color)
+            category_indicator_radius = min(width, height) * 0.05
+            category_x = x + (category_indicator_radius * 2)
+            category_y = y + height - (category_indicator_radius * 2)
+            
+            self.canvas.create_oval(
+                category_x - category_indicator_radius,
+                category_y - category_indicator_radius,
+                category_x + category_indicator_radius,
+                category_y + category_indicator_radius,
+                fill=category_color,
+                outline=category_color,
+                tags=(button_tag, "button"))
+
         # Calculate vertical positions
         center_x = x + (width / 2)
-        title_y = y + (height * 0.25)  # Title at 25% from top
-        last_used_y = y + (height * 0.45)  # Last used at 45% from top
-        description_y = y + (height * 0.65)  # Description at 65% from top
+        title_y = y + (height * 0.25)
+        last_used_y = y + (height * 0.45)
+        description_y = y + (height * 0.65)
         
         # Create text elements
         title_text = self.canvas.create_text(
@@ -1015,6 +1086,7 @@ class VMManagerUI:
             font=('Helvetica', title_font_size, 'bold'),
             anchor="center",
             tags=(button_tag, "button"))
+        
         last_used_text = self.canvas.create_text(
             center_x, last_used_y,
             text=f"Last Used: {last_used}",
@@ -1174,10 +1246,14 @@ class VMManagerUI:
         is_running = self.vm_manager.check_machine_status(pc_name)
         self.vm_manager.machine_status[pc_name] = is_running
 
-    def toggle_theme(self):
+    def switch_theme(self):
         """Toggle between light and dark theme"""
         self.current_theme = "light" if self.current_theme == "dark" else "dark"
         theme = THEMES[self.current_theme]
+        
+        # Save the theme preference
+        self.vm_manager.settings_manager.settings["theme"] = self.current_theme
+        self.vm_manager.settings_manager.save_settings()
         
         # Update all theme colors
         self.primary_bg_color = theme["primary_bg"]
@@ -1190,6 +1266,9 @@ class VMManagerUI:
         
         # Update all UI elements with new colors
         self.update_theme_colors()
+        
+        # Update category buttons with new theme colors
+        self.update_category_buttons()
         
         # Update tag sidebar theme explicitly
         if hasattr(self, 'tag_sidebar'):
@@ -1362,9 +1441,7 @@ class VMManagerUI:
                     command=lambda c=category: self.set_machine_category(pc_name, c),
                     font=menu_style['font'],
                     foreground=menu_style['fg'],
-                    background=menu_style['bg']
-                )
-        
+                    background=menu_style['bg'])
         context_menu.add_cascade(
             label="    Set Category",
             menu=category_menu,
@@ -2060,12 +2137,167 @@ class VMManagerUI:
         if category == "Default":
             return
         
-        context_menu = tk.Menu(self.root, tearoff=0)
-        context_menu.add_command(
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.configure(**MenuStyle.get_themed_menu_style(self.current_theme))
+        
+        # Add rename option
+        menu.add_command(
+            label=f"Rename '{category}'",
+            command=lambda: self.show_rename_category_dialog(category)
+        )
+        
+        # Add color submenu
+        color_menu = tk.Menu(menu, tearoff=0)
+        menu.add_cascade(label="Change Color", menu=color_menu)
+        
+        # Add color options from current theme
+        theme_colors = self.CATEGORY_COLORS[self.current_theme]
+        for color_name, color_hex in theme_colors.items():
+            color_menu.add_command(
+                label=color_name,
+                command=lambda c=color_hex: self.change_category_color(category, c),
+                background=color_hex
+            )
+        
+        menu.add_separator()
+        menu.add_command(
             label=f"Delete '{category}'",
             command=lambda: self.delete_category(category)
         )
-        context_menu.tk_popup(event.x_root, event.y_root)
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def show_rename_category_dialog(self, category):
+        """Show dialog for renaming a category"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Rename Category")
+        dialog.configure(bg=self.primary_bg_color)
+        
+        # Make dialog modal
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Set size and position
+        dialog_width = 300
+        dialog_height = 150
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        x = (screen_width - dialog_width) // 2
+        y = (screen_height - dialog_height) // 2
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+        
+        # Create main frame
+        main_frame = tk.Frame(dialog, bg=self.primary_bg_color, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Label
+        tk.Label(
+            main_frame,
+            text=f"Rename '{category}' to:",
+            font=('Segoe UI', 11),
+            bg=self.primary_bg_color,
+            fg=self.text_color
+        ).pack(pady=(0, 10))
+        
+        # Entry field
+        entry = tk.Entry(
+            main_frame,
+            font=('Segoe UI', 11),
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            insertbackground=self.text_color,
+            relief="flat",
+            width=30
+        )
+        entry.insert(0, category)  # Pre-fill with current name
+        entry.select_range(0, tk.END)  # Select all text
+        entry.pack(pady=(0, 20))
+        
+        # Button frame
+        button_frame = tk.Frame(main_frame, bg=self.primary_bg_color)
+        button_frame.pack(fill=tk.X)
+        
+        def handle_rename():
+            new_name = entry.get().strip()
+            if new_name and new_name != category:
+                if self.rename_category(category, new_name):
+                    dialog.destroy()
+        
+        # OK button
+        ok_button = tk.Button(
+            button_frame,
+            text="OK",
+            command=handle_rename,
+            width=10,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10),
+            relief="flat"
+        )
+        ok_button.pack(side=tk.LEFT, padx=5)
+        
+        # Cancel button
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=dialog.destroy,
+            width=10,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10),
+            relief="flat"
+        )
+        cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        # Bind Enter key to OK button
+        entry.bind('<Return>', lambda e: handle_rename())
+        
+        # Bind Escape key to Cancel
+        dialog.bind('<Escape>', lambda e: dialog.destroy())
+        
+        # Set focus to entry
+        entry.focus_set()
+
+    def rename_category(self, old_name, new_name):
+        """Rename a category"""
+        if old_name == "Default" or new_name == "Default":
+            messagebox.showerror("Error", "Cannot rename the Default category")
+            return False
+        
+        if new_name in self.vm_manager.categories:
+            messagebox.showerror("Error", f"Category '{new_name}' already exists")
+            return False
+        
+        try:
+            # Update the category name in the list
+            index = self.vm_manager.categories.index(old_name)
+            self.vm_manager.categories[index] = new_name
+            
+            # Update all machines that use this category
+            for machine, category in self.vm_manager.machine_categories.items():
+                if category == old_name:
+                    self.vm_manager.machine_categories[machine] = new_name
+            
+            # Update the category color if it exists
+            if old_name in self.vm_manager.category_colors:
+                self.vm_manager.category_colors[new_name] = self.vm_manager.category_colors[old_name]
+                del self.vm_manager.category_colors[old_name]
+            
+            # Update current filter if needed
+            if self.current_filter == old_name:
+                self.current_filter = new_name
+            
+            # Save all changes
+            self.vm_manager.file_manager.save_categories(self.vm_manager.categories)
+            self.vm_manager.file_manager.save_machine_categories(self.vm_manager.machine_categories)
+            self.vm_manager.file_manager.save_category_colors(self.vm_manager.category_colors)
+            
+            # Update the UI
+            self.update_category_buttons()
+            return True
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to rename category: {str(e)}")
+            return False
 
     def delete_category(self, category):
         """Delete a category after confirmation"""
@@ -2077,10 +2309,14 @@ class VMManagerUI:
                               f"Are you sure you want to delete the category '{category}'?\n"
                               "All machines in this category will be unassigned."):
             if self.vm_manager.delete_category(category):
-                self.update_category_buttons()
-                # If current filter is the deleted category, switch to Default
+                # If we're deleting the currently selected category, reset to Default
                 if self.current_filter == category:
-                    self.filter_by_category("Default")
+                    self.current_filter = "Default"
+                    filtered_pcs = self.vm_manager.get_machines_by_category("Default")
+                    self.position_buttons(filtered_pcs)
+                
+                # Update the category buttons
+                self.update_category_buttons()
 
     def show_tag_manager(self):
         """Show dialog for managing tags"""
@@ -2403,67 +2639,89 @@ class VMManagerUI:
         multi_pc_btn.pack(pady=5, padx=10, fill="x")
 
     def update_category_buttons(self):
-        """Update the category buttons display"""
+        """Update category buttons in sidebar"""
         # Clear existing buttons
         for widget in self.category_buttons_container.winfo_children():
             widget.destroy()
-
+        
         # Create button for each category
         for category in self.vm_manager.categories:
-            # Check if this category is currently selected
-            is_selected = hasattr(self, 'current_filter') and self.current_filter == category
-            
-            btn = tk.Button(
-                self.category_buttons_container,
-                text=category,
-                command=lambda c=category: self.filter_by_category(c),
-                # Use hover_active_color if selected, otherwise use secondary_bg_color
-                bg=self.hover_active_color if is_selected else self.secondary_bg_color,
-                fg=self.text_color,
-                font=('Helvetica', 11, 'bold' if is_selected else 'normal'),  # Make selected text bold
-                bd=0,
-                anchor="w",
-                padx=10,
-                cursor="hand2",
-                activebackground=self.hover_active_color,
-                activeforeground=self.text_color
-            )
-            
-            # Modify hover effects to maintain selected state
-            btn.bind('<Enter>', lambda e, b=btn, s=is_selected: b.configure(bg=self.hover_active_color))
-            btn.bind('<Leave>', lambda e, b=btn, s=is_selected: b.configure(
-                bg=self.hover_active_color if s else self.secondary_bg_color
-            ))
-            
-            # Add right-click menu
-            btn.bind('<Button-3>', lambda e, b=btn, c=category: self._show_category_menu(e, b, c))
-            
-            btn.pack(fill="x", pady=2)
+            # For Default category, use theme button color
+            if category == "Default":
+                button_color = self.button_bg_color
+            else:
+                # Get saved color or default to theme's blue
+                saved_color = self.vm_manager.category_colors.get(category, self.button_bg_color)
+                button_color = saved_color
 
-    def _show_category_menu(self, event, button, category):
-        """Show right-click menu for category"""
-        menu = tk.Menu(button, tearoff=0)
-        menu.configure(**MenuStyle.get_themed_menu_style(self.current_theme))
-        menu.add_command(
-            label=f"Remove '{category}'",
-            command=lambda: self.remove_category(category)
-        )
-        menu.tk_popup(event.x_root, event.y_root)
+            def create_hover_handlers(btn, original_color):
+                def on_enter(e):
+                    btn.configure(bg=self.hover_active_color)
+                
+                def on_leave(e):
+                    btn.configure(bg=original_color)
+                
+                return on_enter, on_leave
+
+            # Add checkmark if category is selected
+            button_text = f"✓ {category}" if self.current_filter == category else f"  {category}"
+
+            button = tk.Button(
+                self.category_buttons_container,
+                text=button_text,
+                font=('Segoe UI', 12, 'bold'),  # Changed font to Segoe UI, size 12, bold
+                relief="solid",
+                bd=1,
+                cursor="hand2",
+                bg=button_color,
+                fg=self.text_color,
+                anchor="w",
+                padx=15,    # Increased padding
+                pady=5      # Added vertical padding
+            )
+            button.pack(fill="x", pady=3)  # Increased spacing between buttons
+
+            # Create and bind hover handlers
+            on_enter, on_leave = create_hover_handlers(button, button_color)
+            button.bind('<Enter>', on_enter)
+            button.bind('<Leave>', on_leave)
+            
+            # Bind click event
+            button.bind('<Button-1>', lambda e, c=category: self.filter_by_category(c))
+            
+            # Bind right-click for context menu
+            if category != "Default":
+                button.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
+
+    def change_category_color(self, category, color):
+        """Change the color of a category"""
+        self.vm_manager.category_colors[category] = color
+        self.vm_manager.file_manager.save_category_colors(self.vm_manager.category_colors)
+        self.update_category_buttons()
 
     def remove_category(self, category):
         """Remove a category"""
         if category != "Default":  # Prevent removing Default category
             if self.vm_manager.remove_category(category):
+                # If we're deleting the currently selected category, reset to Default
+                if self.current_filter == category:
+                    self.current_filter = "Default"
+                    filtered_pcs = self.vm_manager.get_machines_by_category("Default")
+                    self.position_buttons(filtered_pcs)
+                
+                # Update the category buttons
                 self.update_category_buttons()
-                # Refresh machine display 
-                self.position_buttons(self.vm_manager.get_machines_by_category("Default"))
 
     def filter_by_category(self, category_name):
         """Filter machines by category"""
-        self.current_filter = category_name  # Store current category filter
-        
-        # Get machines for the selected category
-        filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
+        # If clicking the same category again, deselect it
+        if self.current_filter == category_name:
+            self.current_filter = None  # Clear the filter
+            filtered_pcs = self.vm_manager.pc_names  # Show all PCs
+        else:
+            self.current_filter = category_name  # Set new filter
+            # Get machines for the selected category
+            filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
         
         # If there are active tag filters, apply them as well
         if hasattr(self, 'active_tag_filters') and self.active_tag_filters:
@@ -2478,10 +2736,138 @@ class VMManagerUI:
 
     def add_category_dialog(self):
         """Show dialog to add a new category"""
-        category_name = simpledialog.askstring("Add Category", "Enter category name:")
-        if category_name:
-            if self.vm_manager.add_category(category_name):
-                self.update_category_buttons()
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Add Category")
+        dialog.configure(bg=self.primary_bg_color)
+
+        # Add icon loading logic
+        try:
+            if getattr(sys, 'frozen', False):
+                base_path = os.path.dirname(sys.executable)
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+        
+            icon_path = os.path.join(base_path, "assets", "settings_icon.ico")
+            if os.path.exists(icon_path):
+                dialog.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"Warning: Could not load dialog icon: {e}")
+        
+        # Set size and position
+        dialog_width = 300
+        dialog_height = 250
+        screen_width = dialog.winfo_screenwidth()
+        screen_height = dialog.winfo_screenheight()
+        x = (screen_width - dialog_width) // 2
+        y = (screen_height - dialog_height) // 2
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+        
+        # Make dialog modal
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Create main frame
+        main_frame = tk.Frame(dialog, bg=self.primary_bg_color, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Label
+        tk.Label(
+            main_frame,
+            text="Enter category name:",
+            font=('Segoe UI', 11),
+            bg=self.primary_bg_color,
+            fg=self.text_color
+        ).pack(pady=(0, 10))
+        
+        # Entry field
+        entry = tk.Entry(
+            main_frame,
+            font=('Segoe UI', 11),
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            insertbackground=self.text_color,
+            relief="flat",
+            width=30
+        )
+        entry.pack(pady=(0, 20))
+        
+        # Color selection label
+        tk.Label(
+            main_frame,
+            text="Select color:",
+            font=('Segoe UI', 11),
+            bg=self.primary_bg_color,
+            fg=self.text_color
+        ).pack(pady=(0, 10))
+        
+        # Color selection frame
+        color_frame = tk.Frame(main_frame, bg=self.primary_bg_color)
+        color_frame.pack(pady=(0, 20))
+        
+        # Get theme-appropriate colors
+        theme_colors = self.CATEGORY_COLORS[self.current_theme]
+        selected_color = tk.StringVar(value=theme_colors["Blue"])  # Default to blue
+        
+        # Create color buttons
+        for color_name, color_hex in theme_colors.items():
+            color_btn = tk.Button(
+                color_frame,
+                width=3,
+                height=1,
+                bg=color_hex,  # Use the actual color hex value
+                relief="raised",
+                cursor="hand2",
+                command=lambda c=color_hex: selected_color.set(c)
+            )
+            color_btn.pack(side=tk.LEFT, padx=2)
+            
+            # Add tooltip
+            self.create_tooltip(color_btn, color_name)
+        
+        entry.focus_set()
+        
+        # Button frame
+        button_frame = tk.Frame(main_frame, bg=self.primary_bg_color)
+        button_frame.pack(fill=tk.X)
+        
+        def handle_ok():
+            category_name = entry.get().strip()
+            if category_name:
+                if self.vm_manager.add_category(category_name, selected_color.get()):
+                    self.update_category_buttons()
+                dialog.destroy()
+        
+        # OK button
+        ok_button = tk.Button(
+            button_frame,
+            text="OK",
+            command=handle_ok,
+            width=10,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10),
+            relief="flat"
+        )
+        ok_button.pack(side=tk.LEFT, padx=5)
+        
+        # Cancel button
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=dialog.destroy,
+            width=10,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10),
+            relief="flat"
+        )
+        cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        # Bind Enter key to OK button
+        entry.bind('<Return>', lambda e: handle_ok())
+        
+        # Bind Escape key to Cancel
+        dialog.bind('<Escape>', lambda e: dialog.destroy())
 
     def create_category_section(self):
         """Create the category management section in sidebar"""
@@ -2509,19 +2895,21 @@ class VMManagerUI:
         )
         self.category_buttons_container.pack(fill="x", padx=5, pady=5)
 
-        # Add Category Button
+        # Add Category Button - Updated style
         self.add_category_btn = tk.Button(
             category_frame,
             text="Add Category+",
             command=self.add_category_dialog,
             bg=self.button_bg_color,
             fg=self.text_color,
-            font=('Helvetica', 10),
+            font=('Segoe UI', 12, 'bold'),  # Increased font size and made bold
             relief="solid",
             bd=1,
-            cursor="hand2"
+            cursor="hand2",
+            pady=8,  # Added vertical padding
+            padx=15  # Added horizontal padding
         )
-        self.add_category_btn.pack(pady=(5, 10), padx=10, fill="x")
+        self.add_category_btn.pack(pady=(10, 5), padx=5, fill="x")  # Adjusted padding and made full width
 
         # Create initial category buttons
         self.update_category_buttons()
@@ -2663,7 +3051,6 @@ class VMManagerUI:
             self.tag_sidebar.set_tags(list(self.vm_manager.tags))
 
     def handle_tag_drop(self, tag_name, x, y):
-        """Handle tag being dropped on a machine button"""
         # Find which machine button is under the drop position
         items = self.canvas.find_overlapping(x, y, x, y)
         for item in items:
@@ -2677,6 +3064,34 @@ class VMManagerUI:
                     return True
         return False
 
+    def create_tooltip(self, widget, text):
+        """Create a tooltip for a widget"""
+        def show_tooltip(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            
+            label = tk.Label(
+                tooltip,
+                text=text,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                relief="solid",
+                borderwidth=1,
+                padx=5,
+                pady=2
+            )
+            label.pack()
+            
+            def hide_tooltip():
+                tooltip.destroy()
+            
+            widget.tooltip = tooltip
+            widget.bind('<Leave>', lambda e: hide_tooltip())
+            tooltip.bind('<Leave>', lambda e: hide_tooltip())
+        
+        widget.bind('<Enter>', show_tooltip)
+
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
         # Initialize with the correct theme's header color
@@ -2686,7 +3101,7 @@ class ThemeSwitch(tk.Canvas):
         self.command = command
         
         # Initialize switch state based on provided theme
-        self.switch_on = current_theme == "light"
+        self.switch_on = current_theme == "light"  # Will be False for dark theme
         
         # Define colors for active and inactive states
         self.active_bg_color = THEMES["light"]["button_bg"]
