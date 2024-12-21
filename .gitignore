@@ -116,6 +116,13 @@ test_*.py
 
 # Additional documentation
 docs/images/*.psd
+VMManager_License.rtf
+check_path.py
+create_guide.py
+debug_read.py
+md2html.py
+test_read.py
+test_write.py
 
 # Additional temporary files
 *.tmp
