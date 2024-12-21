@@ -889,7 +889,7 @@ class VMManagerUI:
         self.root.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
         
         # Initialize theme-related attributes
-        self.current_theme = "dark"  # default theme
+        #self.current_theme = "dark"  # default theme
         
         # Load saved theme or use default
         saved_theme = self.vm_manager.settings_manager.settings.get("theme", "dark")
@@ -968,11 +968,15 @@ class VMManagerUI:
         self.title_label.pack(side=tk.LEFT, padx=20)
 
         # Theme switch
-        self.theme_switch = ThemeSwitch(self.header_container, command=self.switch_theme)
+        #self.theme_switch = ThemeSwitch(self.header_container, command=self.switch_theme)
+        # Theme switch
+        self.theme_switch = ThemeSwitch(self.header_container, 
+                               current_theme=self.current_theme,  # Add this
+                               command=self.switch_theme)
         self.theme_switch.pack(side=tk.RIGHT, padx=20)
 
         # Underline
-        self.underline_frame = tk.Frame(self.header_frame, height=2, bg=self.borders_and_dividers_color)
+        self.underline_frame = tk.Frame(self.header_frame, height=2, bg=self.border_color)
         self.underline_frame.pack(fill=tk.X)
 
     def create_sidebar(self):
@@ -1011,6 +1015,9 @@ class VMManagerUI:
         # Add tag sidebar at the bottom
         self.tag_sidebar = TagSidebar(self.left_frame, self.tag_manager)
         self.tag_sidebar.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Initialize the tag sidebar with the current theme
+        self.tag_sidebar.update_theme(self.current_theme)  # Add this line
 
     def create_main_area(self):
         self.main_frame = tk.Frame(self.root, bg=self.primary_bg_color)
@@ -2926,7 +2933,7 @@ class VMManagerUI:
             pady=8,  # Added vertical padding
             padx=15  # Added horizontal padding
         )
-        self.add_category_btn.pack(pady=(10, 5), padx=5, fill="x")  # Adjusted padding and made full width
+        self.add_category_btn.pack(pady=(10, 5), padx=5, fill="x")
 
         # Create initial category buttons
         self.update_category_buttons()
@@ -3185,10 +3192,10 @@ class VMManagerUI:
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
-        # Initialize with the correct theme's header color
+    # Initialize with the correct theme's header color
         super().__init__(parent, width=60, height=30, 
-                        bg=THEMES[current_theme]["header_bg"], 
-                        highlightthickness=0)
+                    bg=THEMES[current_theme]["header_bg"], 
+                    highlightthickness=0)
         self.command = command
         
         # Initialize switch state based on provided theme
