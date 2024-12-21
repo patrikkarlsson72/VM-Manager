@@ -1,7 +1,7 @@
 # VM Manager
 
 <p align="center">
-  <img src="docs/images/VM_logo.png" alt="VM Manager Logo" width="200"/>
+  <img src="docs/images/vm_logo.png" alt="VM Manager Logo" width="200"/>
 </p>
 
 A desktop application for managing and connecting to virtual machines, built with Python and Tkinter.
