@@ -105,6 +105,8 @@ wheels/
 user_data/
 .vm_manager_settings
 src/backups/
+src/backups/20231206/
+src/VMmanagerpython.py.backups
 
 # Additional IDE specific
 .project

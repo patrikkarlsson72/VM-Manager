@@ -91,6 +91,7 @@ THEMES = {
     }
 
 
+
 }
 
 class FileManager:
@@ -779,6 +780,17 @@ class VMManager:
             filtered_pcs = self.pc_names
         
         self.position_buttons(filtered_pcs)
+
+    def reorder_categories(self, new_order):
+        """Reorder categories according to the provided list"""
+        # Ensure Default stays first
+        if "Default" in new_order:
+            new_order.remove("Default")
+        
+        # Reconstruct categories list with Default first
+        self.categories = ["Default"] + new_order
+        self.file_manager.save_categories(self.categories)
+        return True
 
 class VMManagerUI:
     # Update the CATEGORY_COLORS dictionary to have both light and dark theme variants
@@ -2692,6 +2704,11 @@ class VMManagerUI:
             # Bind right-click for context menu
             if category != "Default":
                 button.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
+            
+            # Add drag bindings without removing click functionality
+            button.bind('<Button-1>', lambda e, b=button, c=category: self.start_category_drag(e, b, c))
+            button.bind('<B1-Motion>', lambda e, b=button: self.drag_category(e, b))
+            button.bind('<ButtonRelease-1>', lambda e, c=category: self.end_category_drag(e, c))
 
     def change_category_color(self, category, color):
         """Change the color of a category"""
@@ -3091,6 +3108,80 @@ class VMManagerUI:
             tooltip.bind('<Leave>', lambda e: hide_tooltip())
         
         widget.bind('<Enter>', show_tooltip)
+
+    def reorder_categories(self, new_order):
+        """Reorder categories according to the provided list"""
+        # Ensure Default stays first
+        if "Default" in new_order:
+            new_order.remove("Default")
+        
+        # Reconstruct categories list with Default first
+        self.categories = ["Default"] + new_order
+        self.file_manager.save_categories(self.categories)
+        return True
+
+    def start_category_drag(self, event, button, category):
+        """Start dragging a category"""
+        if category != "Default":  # Prevent dragging Default category
+            # Store the original event for later comparison
+            self._drag_start_x = event.x
+            self._drag_start_y = event.y
+            self.dragging_category = True
+            self.drag_data = {
+                "widget": button,
+                "y": event.y,
+                "start_y": button.winfo_y(),
+                "category": category
+            }
+            button.lift()
+            button.configure(bg=self.hover_active_color)
+
+    def drag_category(self, event, button):
+        """Handle category button drag"""
+        if hasattr(self, 'dragging_category') and self.dragging_category:
+            # Calculate new position
+            delta_y = event.y_root - button.winfo_rooty() - self.drag_data["y"]
+            new_y = button.winfo_y() + delta_y
+            
+            # Keep button within container bounds
+            min_y = 0
+            max_y = self.category_buttons_container.winfo_height() - button.winfo_height()
+            new_y = max(min_y, min(new_y, max_y))
+            
+            # Move the button
+            button.place(y=new_y, x=0, relwidth=1)
+
+    def end_category_drag(self, event, category):
+        """Handle category drag end"""
+        if hasattr(self, 'dragging_category') and self.dragging_category:
+            button = self.drag_data["widget"]
+            
+            # Check if this was a click rather than a drag
+            if (abs(event.x - getattr(self, '_drag_start_x', 0)) < 5 and 
+                abs(event.y - getattr(self, '_drag_start_y', 0)) < 5):
+                # This was a click - call the filter function
+                self.filter_by_category(category)
+            else:
+                # This was a drag - reorder categories
+                buttons = sorted(
+                    [w for w in self.category_buttons_container.winfo_children() if isinstance(w, tk.Button)],
+                    key=lambda w: w.winfo_y()
+                )
+                
+                new_order = []
+                for btn in buttons:
+                    cat_name = btn.cget("text").replace("✓ ", "").strip()
+                    if cat_name != "Default":
+                        new_order.append(cat_name)
+                
+                self.vm_manager.reorder_categories(new_order)
+            
+            # Reset drag state
+            self.dragging_category = False
+            self.drag_data = {"widget": None, "y": 0}
+            
+            # Refresh category buttons
+            self.update_category_buttons()
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):

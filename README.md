@@ -15,6 +15,7 @@ A desktop application for managing and connecting to virtual machines, built wit
   - Category selection with checkmark indicators
   - Hover effects for better interaction
   - Category renaming capability
+  - Drag-and-drop category reordering
 - Machine categorization and tagging system
 - Dark and light theme support
 - Drag-and-drop tag functionality
@@ -31,6 +32,7 @@ A desktop application for managing and connecting to virtual machines, built wit
   - Interactive category buttons with hover effects
   - Category renaming and color customization
   - Toggle selection with checkmarks
+  - Intuitive drag-and-drop reordering
 - **Tag System**: Flexible tagging system for better organization
 - **Theme Support**: Multiple theme options including dark and light modes
 - **Settings Management**: Configurable RDP settings and data directory

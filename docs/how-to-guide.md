@@ -77,6 +77,7 @@ To organize your machines into categories:
    - Click again to deselect a category
 
 ### Category Organization
+![Categories](images/categories_colors.png)
 Tips for effective category management:
 
 1. Use clear, descriptive category names
@@ -85,6 +86,22 @@ Tips for effective category management:
 4. Categories can be renamed without losing assignments
 5. Click categories to toggle filtering
 6. Categories can be edited or deleted through the right-click menu
+7. Drag and drop categories to reorder them (except Default)
+
+### Category Reordering
+To reorganize your categories:
+
+1. Click and hold any category (except Default)
+2. Drag the category up or down to the desired position
+3. Release to drop the category in its new position
+4. The new order is automatically saved
+
+Tips for category organization:
+
+- Default category always stays at the top
+- Most used categories can be moved to the top for easy access
+- Related categories can be grouped together
+- Order is preserved between sessions
 ## Managing Tags
 
 ### Creating and Managing Tags
