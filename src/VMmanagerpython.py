@@ -92,6 +92,8 @@ THEMES = {
 
 
 
+
+
 }
 
 class FileManager:
@@ -407,13 +409,15 @@ class VMManager:
         """Get RDP path for a machine"""
         return self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
 
-    def add_category(self, category_name, category_color):
+    def add_category(self, category_name, category_color=None):
         """Add a new category"""
         if category_name and category_name not in self.categories:
             self.categories.append(category_name)
-            self.category_colors[category_name] = category_color  # Store the color
+            # Use gray as default if no color specified
+            default_color = "#808080"
+            self.category_colors[category_name] = category_color if category_color else default_color
             self.file_manager.save_categories(self.categories)
-            self.file_manager.save_category_colors(self.category_colors)  # Save colors
+            self.file_manager.save_category_colors(self.category_colors)
             return True
         return False
 
@@ -793,6 +797,19 @@ class VMManager:
         self.file_manager.save_categories(self.categories)
         return True
 
+    def remove_tag_from_machine(self, machine_name, tag):
+        """Remove a tag from a machine"""
+        if machine_name in self.machine_tags:
+            if tag in self.machine_tags[machine_name]:
+                self.machine_tags[machine_name].remove(tag)
+                # If no tags left, remove the machine from machine_tags
+                if not self.machine_tags[machine_name]:
+                    del self.machine_tags[machine_name]
+                # Save changes
+                self.file_manager.save_machine_tags(self.machine_tags)
+                return True
+        return False
+
 class VMManagerUI:
     # Update the CATEGORY_COLORS dictionary to have both light and dark theme variants
     CATEGORY_COLORS = {
@@ -1135,7 +1152,9 @@ class VMManagerUI:
         # Category color indicator (bottom left corner)
         category = self.vm_manager.get_machine_category(text)
         if category != "Default":
-            category_color = self.vm_manager.category_colors.get(category, self.button_bg_color)
+            # Change this line to use the same default gray color
+            default_color = "#808080"  # Neutral gray color
+            category_color = self.vm_manager.category_colors.get(category, default_color)
             category_indicator_radius = min(width, height) * 0.05
             category_x = x + (category_indicator_radius * 2)
             category_y = y + height - (category_indicator_radius * 2)
@@ -1560,6 +1579,23 @@ class VMManagerUI:
         
         # Add existing tags
         machine_tags = self.vm_manager.get_machine_tags(pc_name)
+        
+        # Add remove options for existing machine tags
+        if machine_tags:
+            for tag in machine_tags:
+                tags_menu.add_command(
+                    label=f"  🗑️  Remove '{tag}'",
+                    command=lambda t=tag: (
+                        self.vm_manager.remove_tag_from_machine(pc_name, t),
+                        self.position_buttons(self.vm_manager.pc_names)  # Changed from refresh_buttons to position_buttons
+                    ),
+                    font=menu_style['font'],
+                    foreground='#dc3545',  # Red color for delete
+                    background=menu_style['bg']
+                )
+            tags_menu.add_separator()
+        
+        # Add checkboxes for all available tags
         for tag in self.vm_manager.tags:
             tags_menu.add_checkbutton(
                 label=f"  🏷️  {tag}",
@@ -2497,7 +2533,7 @@ class VMManagerUI:
                             padx=5).pack(side="left")
                     
                     # Delete tag from machine button - Remove 'self.' from the lambda
-                    tk.Button(machine_frame, text="×",
+                    tk.Button(machine_frame, text="✕",
                              command=lambda m=machine, t=tag: handle_remove_tag(m, t),
                              bg=self.button_bg_color, fg="red",
                              width=2, padx=2).pack(side="left")
@@ -2735,7 +2771,8 @@ class VMManagerUI:
                 button_color = self.button_bg_color
             else:
                 # Get saved color or default to theme's blue
-                saved_color = self.vm_manager.category_colors.get(category, self.button_bg_color)
+                default_color = "#808080"  # Neutral gray color
+                saved_color = self.vm_manager.category_colors.get(category, default_color)
                 button_color = saved_color
 
             def create_hover_handlers(btn, original_color):
@@ -2774,6 +2811,10 @@ class VMManagerUI:
             button.bind('<Button-1>', lambda e, b=button, c=category: self.start_category_drag(e, b, c))
             button.bind('<B1-Motion>', lambda e, b=button: self.drag_category(e, b))
             button.bind('<ButtonRelease-1>', lambda e, c=category: self.end_category_drag(e, c))
+
+            # Add back the right-click binding for context menu
+            if category != "Default":  # Don't show context menu for Default category
+                button.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
 
     def change_category_color(self, category, color):
         """Change the color of a category"""
@@ -2889,7 +2930,8 @@ class VMManagerUI:
         
         # Get theme-appropriate colors
         theme_colors = self.CATEGORY_COLORS[self.current_theme]
-        selected_color = tk.StringVar(value=theme_colors["Blue"])  # Default to blue
+        default_color = "#808080"  # Use gray as default
+        selected_color = tk.StringVar(value=default_color)  # Set default to gray instead of blue
         
         # Create color buttons
         for color_name, color_hex in theme_colors.items():
@@ -3251,6 +3293,44 @@ class VMManagerUI:
             
             # Refresh category buttons
             self.update_category_buttons()
+
+    def show_add_single_dialog(self):
+        """Show dialog to add a single PC"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Add Single PC")
+        dialog.geometry("300x150")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
+        x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+        y = (dialog.winfo_screenheight() // 2) - (height // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Create and pack widgets
+        tk.Label(dialog, text="Enter PC Name:").pack(pady=10)
+        entry = tk.Entry(dialog)
+        entry.pack(pady=5, padx=20, fill=tk.X)
+        
+        def add_pc():
+            pc_name = entry.get().strip()
+            if pc_name:
+                self.vm_manager.add_pc(pc_name)
+                dialog.destroy()
+                self.refresh_buttons()
+        
+        # Add button
+        add_button = tk.Button(dialog, text="Add", command=add_pc)
+        add_button.pack(pady=10)
+        
+        # Bind Enter key to add_pc function
+        dialog.bind('<Return>', lambda e: add_pc())
+        
+        # Set focus to entry
+        entry.focus_set()
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
