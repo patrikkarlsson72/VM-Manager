@@ -726,12 +726,13 @@ class VMManager:
 
     def filter_by_category(self, category_name):
         """Filter machines by category"""
-        # If clicking the same category again, deselect it
+        # If clicking the same category again (including Default), deselect it
         if self.current_filter == category_name:
             self.current_filter = None  # Clear the filter
             filtered_pcs = self.vm_manager.pc_names  # Show all PCs
         else:
-            self.current_filter = category_name  # Set new filter
+            # Set new filter (even for Default category)
+            self.current_filter = category_name
             # Get machines for the selected category
             filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
         
@@ -874,8 +875,8 @@ class VMManagerUI:
         self.active_tag_filters = set()
         
         # Set window size
-        window_width = 1000
-        window_height = 700
+        window_width = 1300
+        window_height = 900
         
         # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
@@ -1058,7 +1059,64 @@ class VMManagerUI:
             fill=self.button_bg_color,
             outline=status_color,
             width=2,
-            tags=(button_tag, "button", "button_bg"))  # Add background-specific tag
+            tags=(button_tag, "button_bg")
+        )
+        
+        # Add hover bindings for tag popup
+        def show_tag_popup(event):
+            # First destroy any existing popup
+            if hasattr(self.canvas, 'current_popup'):
+                try:
+                    self.canvas.current_popup.destroy()
+                except:
+                    pass
+                delattr(self.canvas, 'current_popup')
+            
+            # Get machine tags
+            machine_tags = self.vm_manager.get_machine_tags(text)
+            if not machine_tags:
+                return
+            
+            # Create popup
+            popup = tk.Toplevel(self.root)
+            popup.overrideredirect(True)
+            popup.configure(bg=self.secondary_bg_color)
+            
+            # Create frame with border
+            frame = tk.Frame(popup, bg=self.secondary_bg_color, 
+                              highlightbackground=self.border_color,
+                              highlightthickness=1)
+            frame.pack(padx=1, pady=1)
+            
+            # Add tags with commas
+            tag_text = ", ".join(machine_tags)
+            tk.Label(frame, text=tag_text,
+                    bg=self.secondary_bg_color,
+                    fg=self.text_color,
+                    font=('Segoe UI', 10)).pack(padx=8, pady=5)
+            
+            # Position popup near the button
+            x = self.canvas.winfo_rootx() + event.x + 20
+            y = self.canvas.winfo_rooty() + event.y + 10
+            popup.geometry(f"+{x}+{y}")
+            
+            # Store popup reference
+            self.canvas.current_popup = popup
+            
+            # Add a timer to automatically destroy popup after a short delay when mouse leaves
+            popup.bind('<Leave>', lambda e: popup.after(100, hide_tag_popup))
+        
+        def hide_tag_popup(event=None):
+            if hasattr(self.canvas, 'current_popup'):
+                try:
+                    self.canvas.current_popup.destroy()
+                except:
+                    pass
+                delattr(self.canvas, 'current_popup')
+        
+        # Bind hover events
+        self.canvas.tag_bind(button_tag, '<Enter>', show_tag_popup)
+        self.canvas.tag_bind(button_tag, '<Leave>', hide_tag_popup)
         
         # Status indicator circle (top right corner)
         indicator_radius = min(width, height) * 0.05
@@ -1191,6 +1249,8 @@ class VMManagerUI:
                     break
                 tags_text = "🏷️ " + ", ".join(tags) + "..."
             
+            # Create the tags text with its own tag for binding
+            tags_tag = f"tags_{text}"  # Create unique tag for the tags text
             self.canvas.create_text(
                 center_x, y + (height * 0.85),
                 text=tags_text,
@@ -1198,7 +1258,12 @@ class VMManagerUI:
                 font=('Helvetica', status_font_size),
                 anchor="center",
                 width=max_tag_width,  # Set maximum width
-                tags=(button_tag, "button"))
+                tags=(button_tag, "button", tags_tag)  # Add the tags_tag
+            )
+            
+            # Bind hover events specifically to the tags text
+            self.canvas.tag_bind(tags_tag, '<Enter>', show_tag_popup)
+            self.canvas.tag_bind(tags_tag, '<Leave>', hide_tag_popup)
 
         # Bind events to the button background
         self.canvas.tag_bind(button_tag, '<Button-1>', lambda e, name=text: self.handle_button_press(e, name))
@@ -2688,17 +2753,17 @@ class VMManagerUI:
             button = tk.Button(
                 self.category_buttons_container,
                 text=button_text,
-                font=('Segoe UI', 12, 'bold'),  # Changed font to Segoe UI, size 12, bold
+                font=('Segoe UI', 12, 'bold'),
                 relief="solid",
                 bd=1,
                 cursor="hand2",
                 bg=button_color,
                 fg=self.text_color,
                 anchor="w",
-                padx=15,    # Increased padding
-                pady=5      # Added vertical padding
+                padx=15,
+                pady=5
             )
-            button.pack(fill="x", pady=3)  # Increased spacing between buttons
+            button.pack(fill="x", pady=3)
 
             # Create and bind hover handlers
             on_enter, on_leave = create_hover_handlers(button, button_color)
@@ -2706,13 +2771,6 @@ class VMManagerUI:
             button.bind('<Leave>', on_leave)
             
             # Bind click event
-            button.bind('<Button-1>', lambda e, c=category: self.filter_by_category(c))
-            
-            # Bind right-click for context menu
-            if category != "Default":
-                button.bind('<Button-3>', lambda e, c=category: self.show_category_context_menu(e, c))
-            
-            # Add drag bindings without removing click functionality
             button.bind('<Button-1>', lambda e, b=button, c=category: self.start_category_drag(e, b, c))
             button.bind('<B1-Motion>', lambda e, b=button: self.drag_category(e, b))
             button.bind('<ButtonRelease-1>', lambda e, c=category: self.end_category_drag(e, c))
@@ -2738,12 +2796,13 @@ class VMManagerUI:
 
     def filter_by_category(self, category_name):
         """Filter machines by category"""
-        # If clicking the same category again, deselect it
+        # If clicking the same category again (including Default), deselect it
         if self.current_filter == category_name:
             self.current_filter = None  # Clear the filter
             filtered_pcs = self.vm_manager.pc_names  # Show all PCs
         else:
-            self.current_filter = category_name  # Set new filter
+            # Set new filter (even for Default category)
+            self.current_filter = category_name
             # Get machines for the selected category
             filtered_pcs = self.vm_manager.get_machines_by_category(category_name)
         
@@ -3142,6 +3201,9 @@ class VMManagerUI:
             }
             button.lift()
             button.configure(bg=self.hover_active_color)
+        else:
+            # For Default category, just handle the click
+            self.filter_by_category(category)
 
     def drag_category(self, event, button):
         """Handle category button drag"""

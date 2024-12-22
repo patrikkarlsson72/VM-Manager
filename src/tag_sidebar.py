@@ -15,7 +15,7 @@ class TagCanvas(tk.Canvas):
         self.font = ('Segoe UI', 11)
         
         # Adjust dimensions for grid layout
-        self.tag_width = 120  # Width of each tag
+        self.tag_width = 133  # Width of each tag
         self.tag_height = 45  # Height of each tag
         self.tag_padding = 8  # Space between tags
         self.corner_radius = 12
@@ -192,7 +192,16 @@ class TagCanvas(tk.Canvas):
         row = index // self.tags_per_row
         col = index % self.tags_per_row
         
-        x = self.horizontal_padding + (col * (self.tag_width + self.tag_padding))
+        # Calculate total width available for tags
+        total_width = self.winfo_width() - (2 * self.horizontal_padding)
+        # Use fixed spacing instead of calculated spacing
+        fixed_spacing = 10  # Small gap between tags
+        
+        # Calculate left margin to align with Add Tag button
+        left_margin = self.horizontal_padding  # Match the Add Tag button's left padding
+        
+        # Calculate x position with fixed spacing
+        x = left_margin + (col * (self.tag_width + fixed_spacing))
         y = start_y + (row * (self.tag_height + self.tag_padding))
         
         # Create tag background
