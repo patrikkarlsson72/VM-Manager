@@ -1287,7 +1287,9 @@ class VMManagerUI:
         # Bind events to the button background
         self.canvas.tag_bind(button_tag, '<Button-1>', lambda e, name=text: self.handle_button_press(e, name))
         self.canvas.tag_bind(button_tag, '<B1-Motion>', self.drag)
-        self.canvas.tag_bind(button_tag, '<ButtonRelease-1>', lambda e, name=text: self.handle_button_release(e, name, command))
+        self.canvas.tag_bind(button_tag, '<ButtonRelease-1>', 
+            lambda e, name=text: self.handle_button_release(e, name, 
+                lambda: self.handle_machine_click(name, command)))
         self.canvas.tag_bind(button_tag, '<Button-3>', lambda e: self.show_context_menu(e, text))
 
         # Add hover bindings
@@ -2117,7 +2119,8 @@ class VMManagerUI:
 
         # If the button wasn't dragged, treat it as a click
         if not self.drag_data.get("moved"):
-            command()  # Execute the command (connect to VM)
+            # Instead of directly executing command(), use handle_machine_click
+            self.handle_machine_click(pc_name, command)
         else:
             # Handle drag completion
             drop_pos = self._get_drop_position(event.x, event.y)
@@ -2132,8 +2135,18 @@ class VMManagerUI:
         # Reset drag data
         self.drag_data = {"x": 0, "y": 0, "item": None, "original_pos": None, "moved": False}
         
-        # Redraw all buttons in their new positions
-        self.position_buttons()
+        # Redraw all buttons in their new positions with current filters
+        if self.current_filter:
+            filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+            if self.active_tag_filters:
+                tag_filtered = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
+                filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered]
+        elif self.active_tag_filters:
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
+        else:
+            filtered_pcs = self.vm_manager.pc_names
+        
+        self.position_buttons(filtered_pcs)
 
     def _get_drop_position(self, x, y):
         """Calculate the position where the button should be dropped"""
@@ -3331,6 +3344,28 @@ class VMManagerUI:
         
         # Set focus to entry
         entry.focus_set()
+
+    def handle_machine_click(self, pc_name, command):
+        """Handle machine button click while maintaining filters"""
+        command()  # Execute the connection command
+        
+        # Reapply current filters
+        if self.current_filter:
+            # Get machines for current category filter
+            filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
+            
+            # If there are also tag filters, apply them
+            if self.active_tag_filters:
+                tag_filtered = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
+                filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered]
+        elif self.active_tag_filters:
+            # Only tag filters active
+            filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
+        else:
+            # No filters active
+            filtered_pcs = self.vm_manager.pc_names
+        
+        self.position_buttons(filtered_pcs)
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
