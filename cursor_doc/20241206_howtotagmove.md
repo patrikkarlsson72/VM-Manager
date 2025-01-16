@@ -93,11 +93,11 @@ def test_data_compatibility(self):
 ### 5. Manual Testing Checklist
 
 1. Basic Tag Operations:
-- [ ] Create new tag
-- [ ] Delete existing tag
-- [ ] Assign tag to machine
-- [ ] Remove tag from machine
-- [ ] Filter machines by tag
+- [x] Create new tag
+- [x] Delete existing tag
+- [x] Assign tag to machine
+- [x] Remove tag from machine
+- [x] Filter machines by tag
 
 2. UI Verification:
 - [ ] Tags display correctly in sidebar

@@ -111,30 +111,34 @@ class FileManager:
         self.machine_tags_file_path = os.path.join(self.data_dir, "machine_tags.txt")
 
     def _get_data_directory(self):
-        default_data_dir = os.path.join(os.getenv("LOCALAPPDATA"), "VmManager")
-        settings_file_path = os.path.join(default_data_dir, "settings.txt")
+        """Get the data directory path from settings or use default"""
+        # First check if there's a settings.txt in the same directory as the executable
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+        exe_settings_path = os.path.join(exe_dir, "settings.txt")
         
-        # Ensure the default directory exists
+        # Then check the default location in LOCALAPPDATA
+        default_data_dir = os.path.join(os.getenv("LOCALAPPDATA"), "VmManager")
+        default_settings_path = os.path.join(default_data_dir, "settings.txt")
+        
+        # Try to read settings from executable directory first, then default location
+        for settings_path in [exe_settings_path, default_settings_path]:
+            if os.path.exists(settings_path):
+                try:
+                    with open(settings_path, "r") as f:
+                        for line in f:
+                            if line.startswith("data_dir="):
+                                data_dir = line.split("=")[1].strip()
+                                if os.path.exists(data_dir):
+                                    return data_dir
+                except Exception as e:
+                    print(f"Error reading settings from {settings_path}: {str(e)}")
+        
+        # If no valid settings found, use and create default
         os.makedirs(default_data_dir, exist_ok=True)
-
-        # Use default if no settings file
-        if not os.path.exists(settings_file_path):
-            # Write default data directory path to settings.txt
-            with open(settings_file_path, "w") as f:
+        with open(default_settings_path, "w") as f:
                 f.write(f"data_dir={default_data_dir}\n")
-            return default_data_dir
-        else:
-            # Read data directory path from settings.txt
-            with open(settings_file_path, "r") as f:
-                data_dir = f.readline().split("=")[1].strip()
-            
-            # If path in settings.txt is invalid, default to LOCALAPPDATA
-            if not os.path.exists(data_dir):
-                data_dir = default_data_dir
-                with open(settings_file_path, "w") as f:
-                    f.write(f"data_dir={default_data_dir}\n")
-            
-            return data_dir
+        
+        return default_data_dir  # Fixed indentation here
 
     def load_pcs(self):
         if os.path.exists(self.pc_file_path):
@@ -190,13 +194,31 @@ class FileManager:
 
     def load_categories(self):
         """Load categories from file"""
+        categories = ["Default"]  # Always ensure Default exists
+        
         if os.path.exists(self.categories_file_path):
-            with open(self.categories_file_path, "r") as file:
-                categories = [line.strip() for line in file]
-                if "Default" not in categories:
-                    categories.insert(0, "Default")
+            try:
+                with open(self.categories_file_path, "r") as file:
+                    file_categories = [line.strip() for line in file]
+                    if file_categories:  # If we got categories from file
+                        if "Default" not in file_categories:
+                            file_categories.insert(0, "Default")
+                        categories = file_categories
+            except Exception as e:
+                print(f"Error loading categories: {str(e)}")
+                # Return default list if there's an error
+                return ["Default"]
+        
+        # If the file didn't exist, create it with the default category
+        else:
+            try:
+                os.makedirs(os.path.dirname(self.categories_file_path), exist_ok=True)
+                with open(self.categories_file_path, "w") as file:
+                    file.write("Default\n")
+            except Exception as e:
+                print(f"Error creating categories file: {str(e)}")
+        
         return categories
-        return ["Default"]
 
     def save_categories(self, categories):
         """Save categories to file"""
@@ -808,7 +830,7 @@ class VMManager:
                 # Save changes
                 self.file_manager.save_machine_tags(self.machine_tags)
                 return True
-        return False
+        return False 
 
 class VMManagerUI:
     # Update the CATEGORY_COLORS dictionary to have both light and dark theme variants
@@ -1919,11 +1941,33 @@ class VMManagerUI:
                     if filename.endswith('.txt'):
                         old_path = os.path.join(old_dir, filename)
                         new_path = os.path.join(new_dir, filename)
-                        shutil.move(old_path, new_path)
+                        shutil.copy2(old_path, new_path)  # Copy instead of move
                 
-                # Update settings with new directory
-                self.vm_manager.settings_manager.settings["data_dir"] = new_dir
-                self.vm_manager.settings_manager.save_settings()
+                # Update ALL possible settings.txt locations
+                settings_locations = [
+                    # LocalAppData location
+                    os.path.join(os.getenv("LOCALAPPDATA"), "VmManager", "settings.txt"),
+                    # New directory location
+                    os.path.join(new_dir, "settings.txt"),
+                    # Current script directory location
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.txt"),
+                    # Current working directory location
+                    os.path.join(os.getcwd(), "settings.txt")
+                ]
+                
+                # Print debug info
+                print("Updating settings files in these locations:")
+                for loc in settings_locations:
+                    print(f"- {loc}")
+                
+                for settings_path in settings_locations:
+                    try:
+                        os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+                        with open(settings_path, "w") as f:
+                            f.write(f"data_dir={new_dir}\n")
+                        print(f"Successfully updated: {settings_path}")
+                    except Exception as e:
+                        print(f"Failed to update {settings_path}: {str(e)}")
                 
                 # Update file manager paths
                 self.vm_manager.file_manager.data_dir = new_dir
