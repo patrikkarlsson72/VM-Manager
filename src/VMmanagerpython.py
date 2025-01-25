@@ -97,7 +97,8 @@ THEMES = {
 }
 
 class FileManager:
-    """Handles all file operations and paths"""
+    """Manages all file operations and data storage for the application.
+    Handles reading/writing of machine data, settings, categories, and tags."""
     def __init__(self):
         self.data_dir = self._get_data_directory()
         self.pc_file_path = os.path.join(self.data_dir, "pcs.txt")
@@ -109,6 +110,7 @@ class FileManager:
         self.machine_categories_file_path = os.path.join(self.data_dir, "machine_categories.txt")
         self.tags_file_path = os.path.join(self.data_dir, "tags.txt")
         self.machine_tags_file_path = os.path.join(self.data_dir, "machine_tags.txt")
+        self.machine_ips_file = os.path.join(self.data_dir, "machine_ips.txt")
 
     def _get_data_directory(self):
         """Get the data directory path from settings or use default"""
@@ -281,10 +283,31 @@ class FileManager:
         except FileNotFoundError:
             return {}  # Return empty dict if file doesn't exist
 
+    def load_machine_ips(self):
+        """Load stored machine IPs"""
+        if os.path.exists(self.machine_ips_file):
+            try:
+                with open(self.machine_ips_file, "r") as f:
+                    return {line.split('=')[0]: line.split('=')[1].strip() 
+                           for line in f if '=' in line}
+            except Exception:
+                return {}
+        return {}
+
+    def save_machine_ips(self, machine_ips):
+        """Save machine IPs"""
+        try:
+            with open(self.machine_ips_file, "w") as f:
+                for pc_name, ip in machine_ips.items():
+                    f.write(f"{pc_name}={ip}\n")
+        except Exception as e:
+            print(f"Error saving machine IPs: {str(e)}")
+
     # ... other file operations ...
 
 class SettingsManager:
-    """Manages application settings"""
+    """Manages application settings and RDP configuration.
+    Ensures required settings exist and handles default configurations."""
     def __init__(self, file_manager):
         self.file_manager = file_manager
         self.settings = self.load_settings()
@@ -326,7 +349,8 @@ class SettingsManager:
     # ... other settings methods ...
 
 class VMManager:
-    """Main application logic"""
+    """Core application logic for managing virtual machines.
+    Handles machine status, connections, categories, and tags."""
     def __init__(self):
         self.file_manager = FileManager()
         self.settings_manager = SettingsManager(self.file_manager)
@@ -343,25 +367,98 @@ class VMManager:
         self.machine_tags = self.file_manager.load_machine_tags()
         self.active_tag_filters = set()  # Add this to track multiple selected tags
         self.category_colors = self.file_manager.load_category_colors()  # Add this line
+        self.machine_ips = self.file_manager.load_machine_ips()  # Add this line
 
     def connect_to_pc(self, pc_name):
-        """Connect to a PC and track the connection"""
-        rdp_file = self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
+        """Connect to a PC with IP verification and DNS cache clearing"""
         try:
+            # Try to clear DNS cache first
+            try:
+                subprocess.run(['ipconfig', '/flushdns'], 
+                             capture_output=True, 
+                             check=True)
+            except subprocess.CalledProcessError:
+                print("Failed to flush DNS cache")
+
+            # Verify IP before connecting
+            current_ip = socket.gethostbyname(pc_name)
+            stored_ip = self.machine_ips.get(pc_name)
+            
+            if stored_ip and stored_ip != current_ip:
+                if not messagebox.askyesno(
+                    "IP Changed",
+                    f"Warning: {pc_name}'s IP has changed!\n"
+                    f"Old IP: {stored_ip}\n"
+                    f"New IP: {current_ip}\n\n"
+                    "Do you want to connect anyway?"
+                ):
+                    # Add option to retry with DNS flush
+                    if messagebox.askyesno(
+                        "Retry Connection",
+                        "Would you like to clear the DNS cache and try again?"
+                    ):
+                        # Clear Python's internal DNS cache
+                        socket._proto_socket.close()
+                        # Clear Windows DNS cache
+                        subprocess.run(['ipconfig', '/flushdns'], 
+                                     capture_output=True, 
+                                     check=True)
+                        # Retry connection recursively
+                        return self.connect_to_pc(pc_name)
+                    return False
+                
+                # Update stored IP
+                self.machine_ips[pc_name] = current_ip
+                self.file_manager.save_machine_ips(self.machine_ips)
+            
+            rdp_file = self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
             subprocess.Popen(["mstsc", rdp_file, "/v:" + pc_name])
-            self.connected_machines.add(pc_name)  # Add to connected machines
+            self.connected_machines.add(pc_name)
             self.last_used_times[pc_name] = datetime.now().strftime("%d/%m %H:%M")
             self.file_manager.save_last_used_times(self.last_used_times)
             return True
+        
+        except socket.gaierror:
+            if messagebox.askyesno(
+                "DNS Error",
+                f"Could not resolve hostname: {pc_name}\n\n"
+                "Would you like to clear the DNS cache and try again?"
+            ):
+                try:
+                    # Clear Python's internal DNS cache
+                    socket._proto_socket.close()
+                    # Clear Windows DNS cache
+                    subprocess.run(['ipconfig', '/flushdns'], 
+                                 capture_output=True, 
+                                 check=True)
+                    # Retry connection recursively
+                    return self.connect_to_pc(pc_name)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to clear DNS cache: {str(e)}")
+            return False
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect to {pc_name}: {str(e)}")
             return False
 
     def check_machine_status(self, pc_name, port=3389, timeout=3):
-        """Check if machine is running by testing RDP port"""
+        """Check if machine is running and verify its IP address"""
         try:
+            # Get the current IP address
+            current_ip = socket.gethostbyname(pc_name)
+            
+            # If we have a stored IP, compare it
+            stored_ip = self.machine_ips.get(pc_name)
+            if stored_ip and stored_ip != current_ip:
+                # Just update the stored IP silently during status check
+                self.machine_ips[pc_name] = current_ip
+                self.file_manager.save_machine_ips(self.machine_ips)
+            
+            # Test connection
             with socket.create_connection((pc_name, port), timeout=timeout):
                 return True
+        except socket.gaierror:
+            # Don't show error message during status check
+            return False
         except (socket.timeout, ConnectionRefusedError, OSError):
             return False
 
@@ -1060,6 +1157,7 @@ class VMManagerUI:
         self.tag_sidebar.update_theme(self.current_theme)  # Add this line
 
     def create_main_area(self):
+        """Creates the scrollable canvas area where machine buttons are displayed."""
         self.main_frame = tk.Frame(self.root, bg=self.primary_bg_color)
         self.main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
@@ -1084,7 +1182,14 @@ class VMManagerUI:
 
     def create_rounded_button(self, text, last_used, description, command, x, y, width, height, corner_radius, 
                              title_font_size, info_font_size, status_font_size):
-        """Create a rounded button with responsive text sizes"""
+        """Creates a machine button with status indicators and information.
+        
+        Features:
+        - Machine name and last used time
+        - Status indicator (green/red circle)
+        - Category indicator (colored diamond)
+        - Hover tooltips for tags
+        """
         # Get machine status
         is_running = self.vm_manager.get_machine_status(text)
         status_color = "#4CAF50" if is_running else "#FF5252"  # Green if running, red if not
@@ -1171,24 +1276,21 @@ class VMManagerUI:
             outline=status_color,
             tags=(button_tag, "button"))
 
-        # Category color indicator (bottom left corner)
+        # Category indicator as a small diamond (bottom left)
         category = self.vm_manager.get_machine_category(text)
         if category != "Default":
-            # Change this line to use the same default gray color
-            default_color = "#808080"  # Neutral gray color
+            default_color = "#808080"
             category_color = self.vm_manager.category_colors.get(category, default_color)
-            category_indicator_radius = min(width, height) * 0.05
-            category_x = x + (category_indicator_radius * 2)
-            category_y = y + height - (category_indicator_radius * 2)
+            diamond_x = x + width * 0.1  # Position at 10% of button width
+            diamond_y = y + height * 0.85  # Position at 85% of button height
             
-            self.canvas.create_oval(
-                category_x - category_indicator_radius,
-                category_y - category_indicator_radius,
-                category_x + category_indicator_radius,
-                category_y + category_indicator_radius,
+            self.canvas.create_text(
+                diamond_x, diamond_y,
+                text="🔹",  # Small diamond icon
                 fill=category_color,
-                outline=category_color,
-                tags=(button_tag, "button"))
+                font=('Segoe UI', int(min(width, height) * 0.12)),  # Increased size
+                tags=(button_tag, "button")
+            )
 
         # Calculate vertical positions
         center_x = x + (width / 2)
@@ -1550,11 +1652,20 @@ class VMManagerUI:
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def show_context_menu(self, event, pc_name):
-        """Show context menu for PC button"""
+        """Displays right-click menu for machine management options."""
         menu_style = MenuStyle.get_themed_menu_style(self.current_theme)
-        
         context_menu = tk.Menu(self.root, tearoff=0)
         context_menu.configure(**menu_style)
+        
+        # Add Clear DNS Cache option near the top
+        context_menu.add_command(
+            label="  🔄  Clear DNS Cache",
+            command=lambda: self.clear_dns_cache(pc_name),
+            font=menu_style['font'],
+            foreground=menu_style['fg']
+        )
+        
+        context_menu.add_separator()
         
         # Category submenu
         category_menu = tk.Menu(context_menu, tearoff=0)
@@ -1922,7 +2033,7 @@ class VMManagerUI:
                     setattr(self, attr_name, color)
 
     def change_data_directory(self):
-        """Change the application's data directory and move existing files"""
+        """Changes application data storage location with file migration."""
         new_dir = filedialog.askdirectory(title="Select New Data Directory")
         if new_dir:
             try:
@@ -2243,7 +2354,7 @@ class VMManagerUI:
                 self.position_buttons()
 
     def position_buttons(self, filtered_pcs=None):
-        """Position machine buttons in the grid"""
+        """Arranges machine buttons in a grid layout with responsive sizing."""
         # If no filtered PCs provided, use the active tag filters
         if filtered_pcs is None:
             if self.active_tag_filters:
@@ -3233,6 +3344,7 @@ class VMManagerUI:
             self.tag_sidebar.set_tags(list(self.vm_manager.tags))
 
     def handle_tag_drop(self, tag_name, x, y):
+        """Handles drag-and-drop of tags onto machine buttons."""
         # Find which machine button is under the drop position
         items = self.canvas.find_overlapping(x, y, x, y)
         for item in items:
@@ -3410,6 +3522,36 @@ class VMManagerUI:
             filtered_pcs = self.vm_manager.pc_names
         
         self.position_buttons(filtered_pcs)
+
+    def clear_dns_cache(self, pc_name=None):
+        """Clear DNS cache and optionally retry connection"""
+        try:
+            # Clear Python's internal DNS cache
+            socket._proto_socket.close()
+            # Clear Windows DNS cache
+            result = subprocess.run(['ipconfig', '/flushdns'], 
+                              capture_output=True, 
+                              check=True)
+            
+            messagebox.showinfo(
+                "Success",
+                "DNS cache cleared successfully!\n"
+                "Try connecting again."
+            )
+            
+            # If pc_name provided, offer to retry connection
+            if pc_name and messagebox.askyesno(
+                "Retry Connection",
+                f"Would you like to try connecting to {pc_name} now?"
+            ):
+                self.connect_to_pc(pc_name)
+                
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Failed to clear DNS cache: {str(e)}\n"
+                "Try running the application as administrator."
+            )
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
