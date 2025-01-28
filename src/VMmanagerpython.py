@@ -370,72 +370,46 @@ class VMManager:
         self.machine_ips = self.file_manager.load_machine_ips()  # Add this line
 
     def connect_to_pc(self, pc_name):
-        """Connect to a PC with IP verification and DNS cache clearing"""
+        """Connect to a PC with IP verification"""
         try:
-            # Try to clear DNS cache first
-            try:
-                subprocess.run(['ipconfig', '/flushdns'], 
-                             capture_output=True, 
-                             check=True)
-            except subprocess.CalledProcessError:
-                print("Failed to flush DNS cache")
-
             # Verify IP before connecting
-            current_ip = socket.gethostbyname(pc_name)
-            stored_ip = self.machine_ips.get(pc_name)
-            
-            if stored_ip and stored_ip != current_ip:
-                if not messagebox.askyesno(
-                    "IP Changed",
-                    f"Warning: {pc_name}'s IP has changed!\n"
-                    f"Old IP: {stored_ip}\n"
-                    f"New IP: {current_ip}\n\n"
-                    "Do you want to connect anyway?"
-                ):
-                    # Add option to retry with DNS flush
-                    if messagebox.askyesno(
-                        "Retry Connection",
-                        "Would you like to clear the DNS cache and try again?"
-                    ):
-                        # Clear Python's internal DNS cache
-                        socket._proto_socket.close()
-                        # Clear Windows DNS cache
-                        subprocess.run(['ipconfig', '/flushdns'], 
-                                     capture_output=True, 
-                                     check=True)
-                        # Retry connection recursively
-                        return self.connect_to_pc(pc_name)
-                    return False
+            try:
+                current_ip = socket.gethostbyname(pc_name)
+                stored_ip = self.machine_ips.get(pc_name)
                 
-                # Update stored IP
+                if stored_ip and stored_ip != current_ip:
+                    # IP has changed
+                    if not messagebox.askyesno(
+                        "IP Changed",
+                        f"Warning: {pc_name}'s IP has changed!\n"
+                        f"Old IP: {stored_ip}\n"
+                        f"New IP: {current_ip}\n\n"
+                        "Do you want to connect anyway?"
+                    ):
+                        return False
+                
+                # Always store the current IP (whether it's new or changed)
                 self.machine_ips[pc_name] = current_ip
                 self.file_manager.save_machine_ips(self.machine_ips)
-            
+                
+            except socket.gaierror:
+                # Replace the old message boxes with our new DNS cache dialog
+                if messagebox.askyesno(
+                    "DNS Error",
+                    f"Could not resolve hostname: {pc_name}\n\n"
+                    "Would you like to see instructions for clearing the DNS cache?"
+                ):
+                    # Call the new DNS cache instructions dialog
+                    self.ui.clear_dns_cache(pc_name)
+                return False
+                
             rdp_file = self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
             subprocess.Popen(["mstsc", rdp_file, "/v:" + pc_name])
             self.connected_machines.add(pc_name)
             self.last_used_times[pc_name] = datetime.now().strftime("%d/%m %H:%M")
             self.file_manager.save_last_used_times(self.last_used_times)
             return True
-        
-        except socket.gaierror:
-            if messagebox.askyesno(
-                "DNS Error",
-                f"Could not resolve hostname: {pc_name}\n\n"
-                "Would you like to clear the DNS cache and try again?"
-            ):
-                try:
-                    # Clear Python's internal DNS cache
-                    socket._proto_socket.close()
-                    # Clear Windows DNS cache
-                    subprocess.run(['ipconfig', '/flushdns'], 
-                                 capture_output=True, 
-                                 check=True)
-                    # Retry connection recursively
-                    return self.connect_to_pc(pc_name)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to clear DNS cache: {str(e)}")
-            return False
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to connect to {pc_name}: {str(e)}")
             return False
@@ -472,19 +446,32 @@ class VMManager:
         return False
 
     def delete_pc(self, pc_name):
-        """Delete a PC from the list"""
+        """Delete a PC from the list and remove all associated data"""
         if pc_name in self.pc_names:
+            # Remove from main lists and dictionaries
             self.pc_names.remove(pc_name)
             self.machine_status.pop(pc_name, None)
             self.last_used_times.pop(pc_name, None)
             self.descriptions.pop(pc_name, None)
             self.machine_rdp_paths.pop(pc_name, None)
             
+            # Remove from categories
+            self.machine_categories.pop(pc_name, None)
+            
+            # Remove from tags
+            self.machine_tags.pop(pc_name, None)
+            
+            # Remove from IPs
+            self.machine_ips.pop(pc_name, None)
+            
             # Save all changes
             self.file_manager.save_pcs(self.pc_names)
             self.file_manager.save_last_used_times(self.last_used_times)
             self.file_manager.save_descriptions(self.descriptions)
             self.file_manager.save_machine_rdp_paths(self.machine_rdp_paths)
+            self.file_manager.save_machine_categories(self.machine_categories)
+            self.file_manager.save_machine_tags(self.machine_tags)
+            self.file_manager.save_machine_ips(self.machine_ips)
             return True
         return False
 
@@ -954,8 +941,14 @@ class VMManagerUI:
         }
     }
     """Main application UI"""
-    def __init__(self, vm_manager):
-        self.vm_manager = vm_manager
+    def __init__(self, vm_manager=None):
+        # If no vm_manager provided, create one with reference to self
+        if vm_manager is None:
+            self.vm_manager = VMManager()
+            self.vm_manager.ui = self  # Add reference to UI
+        else:
+            self.vm_manager = vm_manager
+            self.vm_manager.ui = self  # Add reference to UI
         self.root = tk.Tk()
         self.root.title("VM Manager")
         
@@ -1867,11 +1860,18 @@ class VMManagerUI:
     def delete_pc(self, pc_name):
         """Delete a machine and refresh the display"""
         if self.vm_manager.delete_pc(pc_name):
+            # Refresh display maintaining current filter
             if self.current_filter:
                 filtered_pcs = self.vm_manager.get_machines_by_category(self.current_filter)
-                self.position_buttons(filtered_pcs)
+                if self.active_tag_filters:
+                    tag_filtered = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
+                    filtered_pcs = [pc for pc in filtered_pcs if pc in tag_filtered]
+            elif self.active_tag_filters:
+                filtered_pcs = self.vm_manager.get_machines_by_multiple_tags(list(self.active_tag_filters))
             else:
-                self.position_buttons()
+                filtered_pcs = self.vm_manager.pc_names
+            
+            self.position_buttons(filtered_pcs)
 
     def update_settings(self):
         settings_window = tk.Toplevel(self.root)
@@ -1977,6 +1977,121 @@ class VMManagerUI:
                   command=lambda: self.save_settings(settings_window, refresh_entry),
                   bg=self.button_bg_color, fg=self.text_color,
                   width=button_width).pack(pady=(10, 0))
+
+        # Add Reset Settings Section
+        reset_frame = tk.LabelFrame(main_frame, text=" Reset Settings ", 
+                                   bg=self.primary_bg_color, fg=self.text_color,
+                                   font=('Helvetica', 12, 'bold'))
+        reset_frame.pack(fill='x', pady=(0, section_padding))
+
+        def reset_settings():
+            """Reset all settings to default"""
+            if messagebox.askyesno(
+                "Confirm Reset",
+                "This will reset all settings to default values.\n\n"
+                "This includes:\n"
+                "• Default RDP path\n"
+                "• Theme preferences\n"
+                "• Custom colors\n"
+                "• Window positions\n"
+                "• Refresh intervals\n"
+                "• Data directory (will be reset to default location)\n\n"
+                "Machine data will be moved to the default location:\n"
+                "%LOCALAPPDATA%\\VmManager\n\n"
+                "Are you sure you want to continue?",
+                icon='warning'
+            ):
+                try:
+                    # Get default data directory
+                    default_data_dir = os.path.join(os.getenv("LOCALAPPDATA"), "VmManager")
+                    current_data_dir = self.vm_manager.file_manager.data_dir
+
+                    # Reset settings to defaults
+                    default_settings = {
+                        "theme": "dark",
+                        "refresh_interval": 5,
+                        "rdp_path": "",
+                        "custom_colors": {},
+                        "data_dir": default_data_dir  # Add default data directory
+                    }
+                    
+                    # Create default directory if it doesn't exist
+                    os.makedirs(default_data_dir, exist_ok=True)
+                    
+                    # Move all data files to default location if not already there
+                    if current_data_dir != default_data_dir:
+                        try:
+                            for filename in os.listdir(current_data_dir):
+                                if filename.endswith('.txt'):
+                                    src = os.path.join(current_data_dir, filename)
+                                    dst = os.path.join(default_data_dir, filename)
+                                    shutil.copy2(src, dst)
+                        except Exception as e:
+                            messagebox.showerror(
+                                "Error",
+                                f"Failed to move data files: {str(e)}\n"
+                                "Settings will still be reset, but you may need to move data files manually."
+                            )
+                    
+                    # Update settings
+                    self.vm_manager.settings_manager.settings = default_settings.copy()
+                    self.vm_manager.settings_manager.save_settings()
+                    
+                    # Update file manager paths
+                    self.vm_manager.file_manager.data_dir = default_data_dir
+                    self.vm_manager.file_manager.update_paths()
+                    
+                    # Apply theme changes
+                    self.current_theme = default_settings["theme"]
+                    theme = THEMES[self.current_theme]
+                    self.primary_bg_color = theme["primary_bg"]
+                    self.secondary_bg_color = theme["secondary_bg"]
+                    self.button_bg_color = theme["button_bg"]
+                    self.text_color = theme["text"]
+                    self.hover_active_color = theme["hover_active"]
+                    self.border_color = theme["borders"]
+                    self.header_bg_color = theme["header_bg"]
+                    
+                    # Update UI with new theme
+                    self.update_theme_colors()
+                    self.position_buttons()
+                    
+                    messagebox.showinfo(
+                        "Settings Reset",
+                        "All settings have been reset to default values.\n"
+                        "Data directory has been reset to default location.\n"
+                        "Please restart the application for all changes to take effect."
+                    )
+                    
+                    # Close settings window
+                    settings_window.destroy()
+                    
+                except Exception as e:
+                    messagebox.showerror(
+                        "Error",
+                        f"Failed to reset settings: {str(e)}\n"
+                        "Please try again or reset manually by deleting settings.txt"
+                    )
+
+        tk.Button(
+            reset_frame,
+            text="Reset All Settings to Default",
+            command=reset_settings,
+            bg="#dc3545",  # Red background for warning
+            fg="white",
+            width=button_width
+        ).pack(pady=15)
+
+        # Add warning text
+        tk.Label(
+            reset_frame,
+            text="Warning: This will reset all settings to their default values.\n"
+                 "Machine data will not be affected.",
+            bg=self.primary_bg_color,
+            fg="#dc3545",  # Red text for warning
+            font=('Helvetica', 9),
+            wraplength=350
+        ).pack(pady=(0, 15))
 
     def get_current_color(self, element):
         """Get the current color for a UI element"""
@@ -3524,34 +3639,174 @@ class VMManagerUI:
         self.position_buttons(filtered_pcs)
 
     def clear_dns_cache(self, pc_name=None):
-        """Clear DNS cache and optionally retry connection"""
+        """Show instructions for clearing DNS cache with copy and execute options"""
+        dns_dialog = tk.Toplevel(self.root)
+        dns_dialog.title("Clear DNS Cache Instructions")
+        dns_dialog.geometry("500x550")  # Increased height to show all content
+        dns_dialog.configure(bg=self.primary_bg_color)
+        dns_dialog.transient(self.root)
+        dns_dialog.grab_set()
+        dns_dialog.resizable(False, False)  # Make dialog non-resizable
+
+        # Center the dialog on screen
+        screen_width = dns_dialog.winfo_screenwidth()
+        screen_height = dns_dialog.winfo_screenheight()
+        x = (screen_width - 500) // 2
+        y = (screen_height - 550) // 2
+        dns_dialog.geometry(f"500x550+{x}+{y}")
+
+        # Main frame with padding
+        main_frame = tk.Frame(dns_dialog, bg=self.primary_bg_color)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # Instructions
+        tk.Label(
+            main_frame,
+            text="To clear the DNS cache, you can use one of these methods:",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 11),
+            wraplength=460
+        ).pack(pady=(0, 15))
+
+        # Command Prompt method
+        cmd_frame = tk.LabelFrame(
+            main_frame,
+            text=" Command Prompt ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10, 'bold')
+        )
+        cmd_frame.pack(fill="x", pady=(0, 15))
+
+        cmd_code = "ipconfig /flushdns"
+        tk.Label(
+            cmd_frame,
+            text=cmd_code,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Consolas', 11),
+            padx=10,
+            pady=5
+        ).pack(pady=5)
+
+        tk.Button(
+            cmd_frame,
+            text="📋 Copy CMD Command",
+            command=lambda: self.root.clipboard_append(cmd_code),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(pady=5)
+
+        tk.Button(
+            cmd_frame,
+            text="🚀 Run as Administrator",
+            command=lambda: self.run_elevated_command("cmd", cmd_code),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(pady=5)
+
+        # PowerShell method
+        ps_frame = tk.LabelFrame(
+            main_frame,
+            text=" PowerShell ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10, 'bold')
+        )
+        ps_frame.pack(fill="x", pady=(0, 15))
+
+        ps_code = "Clear-DnsClientCache"
+        tk.Label(
+            ps_frame,
+            text=ps_code,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Consolas', 11),
+            padx=10,
+            pady=5
+        ).pack(pady=5)
+
+        tk.Button(
+            ps_frame,
+            text="📋 Copy PowerShell Command",
+            command=lambda: self.root.clipboard_append(ps_code),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(pady=5)
+
+        tk.Button(
+            ps_frame,
+            text="🚀 Run as Administrator",
+            command=lambda: self.run_elevated_command("powershell", ps_code),
+            bg=self.button_bg_color,
+            fg=self.text_color
+        ).pack(pady=5)
+
+        # Bottom buttons frame - moved to bottom of dialog
+        bottom_frame = tk.Frame(main_frame, bg=self.primary_bg_color)
+        bottom_frame.pack(fill="x", pady=(20, 0), side="bottom")  # Added more padding and explicit side
+
+        # Retry connection button if pc_name provided
+        if pc_name:
+            tk.Button(
+                bottom_frame,
+                text=f"↺ Retry Connection to {pc_name}",
+                command=lambda: [dns_dialog.destroy(), self.vm_manager.connect_to_pc(pc_name)],
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 10, 'bold')
+            ).pack(side="left", padx=5)
+
+        # Close button
+        tk.Button(
+            bottom_frame,
+            text="Close",
+            command=dns_dialog.destroy,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(side="right", padx=5)
+
+        # Bind Escape key to close dialog
+        dns_dialog.bind('<Escape>', lambda e: dns_dialog.destroy())
+
+    def run_elevated_command(self, shell_type, command):
+        """Run a command with elevated privileges"""
         try:
-            # Clear Python's internal DNS cache
-            socket._proto_socket.close()
-            # Clear Windows DNS cache
-            result = subprocess.run(['ipconfig', '/flushdns'], 
-                              capture_output=True, 
-                              check=True)
-            
-            messagebox.showinfo(
-                "Success",
-                "DNS cache cleared successfully!\n"
-                "Try connecting again."
-            )
-            
-            # If pc_name provided, offer to retry connection
-            if pc_name and messagebox.askyesno(
-                "Retry Connection",
-                f"Would you like to try connecting to {pc_name} now?"
-            ):
-                self.connect_to_pc(pc_name)
+            if shell_type == "cmd":
+                # Create a temporary batch file
+                with open("clear_dns.bat", "w") as f:
+                    f.write(f"{command}\necho.\necho DNS cache has been cleared.\necho Press any key to exit...\npause >nul")
+                
+                # Run the batch file as administrator
+                subprocess.run(["powershell", "Start-Process", "clear_dns.bat", "-Verb", "RunAs"])
+                
+                # Delete the batch file after a short delay
+                self.root.after(2000, lambda: os.remove("clear_dns.bat") if os.path.exists("clear_dns.bat") else None)
+                
+            else:  # PowerShell
+                # Create a temporary PowerShell script with proper command execution
+                script_path = os.path.abspath('clear_dns.ps1')
+                with open(script_path, "w") as f:
+                    f.write(
+                        f'Write-Host "Clearing DNS cache..." -ForegroundColor Yellow\n'
+                        f'{command}\n'
+                        f'Write-Host "DNS cache has been cleared." -ForegroundColor Green\n'
+                        f'Write-Host "Press any key to exit..." -ForegroundColor Cyan\n'
+                        f'$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")\n'
+                        f'exit'  # Add explicit exit command
+                    )
+                
+                # Run the PowerShell script as administrator without -NoExit flag
+                powershell_command = f'Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File {script_path}" -Verb RunAs'
+                subprocess.run(["powershell", "-Command", powershell_command])
+                
+                # Delete the script file after a short delay
+                self.root.after(2000, lambda: os.remove(script_path) if os.path.exists(script_path) else None)
                 
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Failed to clear DNS cache: {str(e)}\n"
-                "Try running the application as administrator."
-            )
+            messagebox.showerror("Error", f"Failed to run command: {str(e)}")
 
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
@@ -3636,8 +3891,7 @@ class ThemeSwitch(tk.Canvas):
         return self.create_polygon(points, smooth=True, **kwargs)
 
 def main():
-    vm_manager = VMManager()
-    app = VMManagerUI(vm_manager)
+    app = VMManagerUI()  # Create UI first, it will create VMManager with proper reference
     app.root.mainloop()
 
 if __name__ == "__main__":
