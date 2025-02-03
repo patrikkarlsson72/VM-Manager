@@ -24,10 +24,24 @@ A desktop application for managing and connecting to virtual machines, built wit
 - Import/Export settings
 - Machine descriptions and last-used tracking
 - DNS cache management for connection issues
+- Comprehensive troubleshooting tools:
+  - Step-by-step troubleshooting wizard
+  - Automated diagnostics with progress tracking
+  - Network path analysis and RDP port checking
+  - Event Viewer log integration
+  - Knowledge base for common issues
+  - Connection history monitoring
+  - Real-time health status indicators
 
 ## Core Components
 
 - **Machine Management**: Add, remove, and organize virtual machines
+- **Troubleshooting System**:
+  - Automated diagnostic checks
+  - Event log analysis
+  - Network connectivity testing
+  - DNS resolution verification
+  - RDP service monitoring
 - **Enhanced Category System**: 
   - Color-coded grouping with diamond indicators
   - Interactive category buttons with hover effects
@@ -46,6 +60,8 @@ A desktop application for managing and connecting to virtual machines, built wit
 - Supports Windows OS (RDP functionality)
 - Data stored locally in user's AppData directory
 - Modular architecture for easy maintenance
+- Integrated Windows Event Viewer access
+- PowerShell integration for advanced diagnostics
 
 ## Installation
 
@@ -62,6 +78,12 @@ A desktop application for managing and connecting to virtual machines, built wit
 - Use the sidebar for filtering and organization
 - Access settings via the gear icon
 - Clear DNS cache when experiencing connection issues
+- Access troubleshooting tools for connection problems:
+  - Run automated diagnostics
+  - View Event Viewer logs
+  - Use step-by-step wizard
+  - Check network connectivity
+  - Monitor connection history
 
 ## Configuration
 

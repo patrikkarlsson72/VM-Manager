@@ -387,10 +387,10 @@ class VMManager:
                         "Do you want to connect anyway?"
                     ):
                         return False
-                
-                # Always store the current IP (whether it's new or changed)
-                self.machine_ips[pc_name] = current_ip
-                self.file_manager.save_machine_ips(self.machine_ips)
+                    
+                    # Always store the current IP (whether it's new or changed)
+                    self.machine_ips[pc_name] = current_ip
+                    self.file_manager.save_machine_ips(self.machine_ips)
                 
             except socket.gaierror:
                 # Replace the old message boxes with our new DNS cache dialog
@@ -402,7 +402,7 @@ class VMManager:
                     # Call the new DNS cache instructions dialog
                     self.ui.clear_dns_cache(pc_name)
                 return False
-                
+                    
             rdp_file = self.machine_rdp_paths.get(pc_name, self.settings_manager.settings["rdp_path"])
             subprocess.Popen(["mstsc", rdp_file, "/v:" + pc_name])
             self.connected_machines.add(pc_name)
@@ -947,7 +947,7 @@ class VMManagerUI:
             self.vm_manager = VMManager()
             self.vm_manager.ui = self  # Add reference to UI
         else:
-            self.vm_manager = vm_manager
+            self.vm_manager = vm_manager  # Fixed indentation here
             self.vm_manager.ui = self  # Add reference to UI
         self.root = tk.Tk()
         self.root.title("VM Manager")
@@ -1650,10 +1650,10 @@ class VMManagerUI:
         context_menu = tk.Menu(self.root, tearoff=0)
         context_menu.configure(**menu_style)
         
-        # Add Clear DNS Cache option near the top
+        # Replace Clear DNS Cache with Troubleshoot
         context_menu.add_command(
-            label="  🔄  Clear DNS Cache",
-            command=lambda: self.clear_dns_cache(pc_name),
+            label="  🔧  Troubleshoot",
+            command=lambda: self.show_troubleshoot_window(pc_name),
             font=menu_style['font'],
             foreground=menu_style['fg']
         )
@@ -3808,12 +3808,1107 @@ class VMManagerUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to run command: {str(e)}")
 
+    def show_troubleshoot_window(self, pc_name=None):
+        """Show troubleshooting window for a machine"""
+        troubleshoot_dialog = tk.Toplevel(self.root)
+        troubleshoot_dialog.title(f"Troubleshoot - {pc_name}")
+        troubleshoot_dialog.geometry("700x1000")  # Increased height from 900 to 1000
+        troubleshoot_dialog.configure(bg=self.primary_bg_color)
+        troubleshoot_dialog.transient(self.root)
+        troubleshoot_dialog.grab_set()
+        troubleshoot_dialog.resizable(False, False)
+
+        # Update the centering calculation:
+        screen_width = troubleshoot_dialog.winfo_screenwidth()
+        screen_height = troubleshoot_dialog.winfo_screenheight()
+        x = (screen_width - 700) // 2
+        y = (screen_height - 1000) // 2  # Changed from 900 to 1000
+        troubleshoot_dialog.geometry(f"700x1000+{x}+{y}")
+
+        # Move the Automated Diagnostics section right after Network Diagnostics
+        # and before Troubleshooting Tools (around line 350)
+        # Cut the entire diagnostics_frame section from the bottom and paste it here
+
+        # Define on_close function early
+        def on_close():
+            if hasattr(self, '_ping_running'):
+                self._ping_running = False
+            troubleshoot_dialog.destroy()
+
+        # Main frame
+        main_frame = tk.Frame(troubleshoot_dialog, bg=self.primary_bg_color)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # 1. Machine Info Section
+        info_frame = tk.LabelFrame(
+            main_frame,
+            text=" Machine Information ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 12, 'bold')
+        )
+        info_frame.pack(fill="x", pady=(0, 15))
+
+        # Current IP
+        current_ip = "Checking..."
+        try:
+            current_ip = socket.gethostbyname(pc_name)
+        except socket.gaierror:
+            current_ip = "Could not resolve hostname"
+
+        # Stored IP
+        stored_ip = self.vm_manager.machine_ips.get(pc_name, "No stored IP")
+
+        # Add machine info
+        tk.Label(
+            info_frame,
+            text=f"Machine Name: {pc_name}",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(anchor="w", pady=5, padx=10)
+
+        tk.Label(
+            info_frame,
+            text=f"Current IP: {current_ip}",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(anchor="w", pady=5, padx=10)
+
+        tk.Label(
+            info_frame,
+            text=f"Stored IP: {stored_ip}",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(anchor="w", pady=5, padx=10)
+
+        # 2. Connection Status Section - Enhanced version
+        status_frame = tk.LabelFrame(
+            main_frame,
+            text=" Connection Status ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 12, 'bold')
+        )
+        status_frame.pack(fill="x", pady=(0, 15))
+
+        # Create a frame for status indicators
+        status_indicators = tk.Frame(status_frame, bg=self.primary_bg_color)
+        status_indicators.pack(fill="x", padx=10, pady=5)
+
+        # Status indicators with icons and colors
+        status_text = tk.StringVar(value="Checking connection status...")
+        status_label = tk.Label(
+            status_indicators,
+            textvariable=status_text,
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10, 'bold')
+        )
+        status_label.pack(side="left", pady=5)
+
+        # Add health indicator
+        health_text = tk.StringVar(value="Health: Unknown")
+        health_label = tk.Label(
+            status_indicators,
+            textvariable=health_text,
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        )
+        health_label.pack(side="right", pady=5)
+
+        # Add connection history
+        history_frame = tk.Frame(status_frame, bg=self.primary_bg_color)
+        history_frame.pack(fill="x", padx=10, pady=5)
+
+        tk.Label(
+            history_frame,
+            text="Connection History:",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10, 'bold')
+        ).pack(anchor="w")
+
+        # Create a frame for text and scrollbar
+        history_container = tk.Frame(history_frame, bg=self.primary_bg_color)
+        history_container.pack(fill="x", pady=(5, 0))
+
+        history_text = tk.Text(
+            history_container,
+            height=4,
+            bg=self.secondary_bg_color,
+            fg=self.text_color,
+            font=('Consolas', 9),
+            wrap=tk.WORD
+        )
+        history_text.pack(side="left", fill="x", expand=True)
+
+        # Add scrollbar
+        scrollbar = tk.Scrollbar(history_container, command=history_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        history_text.configure(yscrollcommand=scrollbar.set)
+
+        def update_status():
+            """Enhanced status update with health check"""
+            is_running = self.vm_manager.check_machine_status(pc_name)
+            
+            # Basic status
+            status = "Online" if is_running else "Offline"
+            color = "green" if is_running else "red"
+            status_text.set(f"Status: {status}")
+            status_label.configure(fg=color)
+            
+            # Health check
+            health_status = "Good"
+            health_color = "green"
+            
+            try:
+                # Check RDP port
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                rdp_status = sock.connect_ex((pc_name, 3389)) == 0
+                sock.close()
+                
+                # Quick ping test
+                ping_result = subprocess.run(
+                    ["ping", "-n", "1", "-w", "1000", pc_name],
+                              capture_output=True, 
+                    text=True
+                )
+                ping_success = "Reply from" in ping_result.stdout
+                
+                # Determine health based on checks
+                if not is_running:
+                    health_status = "Offline"
+                    health_color = "red"
+                elif not rdp_status:
+                    health_status = "RDP Unavailable"
+                    health_color = "orange"
+                elif not ping_success:
+                    health_status = "High Latency"
+                    health_color = "orange"
+                
+                # Add to history - temporarily enable text widget
+                history_text.configure(state="normal")
+                current_time = datetime.now().strftime("%H:%M:%S")
+                history_text.insert("1.0", f"[{current_time}] Status: {status}, Health: {health_status}\n")
+                history_text.delete("5.0", tk.END)
+                history_text.configure(state="disabled")
+                history_text.see("1.0")  # Scroll to latest entry
+                
+            except Exception as e:
+                health_status = "Check Failed"
+                health_color = "red"
+            
+            health_text.set(f"Health: {health_status}")
+            health_label.configure(fg=health_color)
+
+        # Make history text read-only
+        history_text.configure(state="disabled")
+
+        # 3. Network Diagnostics Section
+        network_frame = tk.LabelFrame(
+            main_frame,
+            text=" Network Diagnostics ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 12, 'bold')
+        )
+        network_frame.pack(fill="x", pady=(0, 15))
+
+        # Define ping-related variables and functions first
+        ping_status = tk.StringVar(value="Start continuous ping")
+        ping_results = tk.StringVar(value="")
+
+        def toggle_continuous_ping():
+            if not hasattr(self, '_ping_running'):
+                self._ping_running = False
+            
+            if self._ping_running:
+                self._ping_running = False
+                ping_button.configure(text="Start Continuous Ping")
+            else:
+                self._ping_running = True
+                ping_button.configure(text="Stop Continuous Ping")
+                continuous_ping()
+
+        def continuous_ping():
+            if not self._ping_running:
+                return
+            
+            try:
+                result = subprocess.run(
+                    ["ping", "-n", "1", pc_name],
+                    capture_output=True,
+                    text=True
+                )
+                
+                if "Reply from" in result.stdout:
+                    ping_status.set("✅ Connected")
+                    ping_results.set(result.stdout.split('\n')[2])  # Get the timing line
+                else:
+                    ping_status.set("❌ No Response")
+                    ping_results.set("Request timed out")
+                
+            except Exception as e:
+                ping_status.set(f"❌ Error: {str(e)}")
+            
+            if self._ping_running:
+                troubleshoot_dialog.after(1000, continuous_ping)  # Run every second
+
+        def check_rdp_port():
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((pc_name, 3389))
+                if result == 0:
+                    messagebox.showinfo("Port Check", "RDP Port (3389) is open and accessible!")
+                else:
+                    messagebox.warning("Port Check", "RDP Port (3389) is not accessible.")
+                sock.close()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to check RDP port: {str(e)}")
+
+        def test_network_path():
+            try:
+                result = subprocess.run(["tracert", "-d", "-h", "15", pc_name], 
+                                      capture_output=True, text=True)
+                show_path_results(result.stdout)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to test network path: {str(e)}")
+
+        def show_path_results(results):
+            results_window = tk.Toplevel(troubleshoot_dialog)
+            results_window.title("Network Path Results")
+            results_window.geometry("600x400")
+            results_window.configure(bg=self.primary_bg_color)
+            
+            text_widget = tk.Text(
+                results_window,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                font=('Consolas', 10)
+            )
+            text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            text_widget.insert('1.0', results)
+            text_widget.configure(state='disabled')
+
+        # Add network diagnostic buttons
+        tk.Button(
+            network_frame,
+            text="Check RDP Port",
+            command=check_rdp_port,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=20
+        ).pack(pady=5, padx=10)
+
+        tk.Button(
+            network_frame,
+            text="Test Network Path",
+            command=test_network_path,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=20
+        ).pack(pady=5, padx=10)
+
+        # Add continuous ping button
+        ping_button = tk.Button(
+            network_frame,
+            text="Start Continuous Ping",
+            command=toggle_continuous_ping,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=20
+        )
+        ping_button.pack(pady=5, padx=10)
+
+        # Add ping status display
+        ping_monitor_frame = tk.Frame(network_frame, bg=self.primary_bg_color)
+        ping_monitor_frame.pack(fill="x", padx=10, pady=5)
+
+        tk.Label(
+            ping_monitor_frame,
+            textvariable=ping_status,
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(side="left", padx=5)
+
+        tk.Label(
+            ping_monitor_frame,
+            textvariable=ping_results,
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Consolas', 10)
+        ).pack(side="left", padx=5)
+
+        # 4. Troubleshooting Tools Section
+        tools_frame = tk.LabelFrame(
+            main_frame,
+            text=" Troubleshooting Tools ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 12, 'bold')
+        )
+        tools_frame.pack(fill="x", pady=(0, 15))
+
+        # Create a frame for the grid layout
+        button_grid = tk.Frame(tools_frame, bg=self.primary_bg_color)
+        button_grid.pack(padx=10, pady=5)
+
+        # First column
+        tk.Button(
+            button_grid,
+            text="Clear DNS Cache",
+            command=lambda: self.run_elevated_command("powershell", "Clear-DnsClientCache"),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Increased from 20 to 25
+        ).grid(row=0, column=0, pady=5, padx=5)
+
+        tk.Button(
+            button_grid,
+            text="Ping Machine",
+            command=lambda: ping_machine(),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Increased from 20 to 25
+        ).grid(row=1, column=0, pady=5, padx=5)
+
+        tk.Button(
+            button_grid,
+            text="Refresh Status",
+            command=update_status,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Increased from 20 to 25
+        ).grid(row=2, column=0, pady=5, padx=5)
+
+        # Second column
+        tk.Button(
+            button_grid,
+            text="Open Knowledge Base",
+            command=lambda: show_knowledge_base(),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Increased from 20 to 25
+        ).grid(row=0, column=1, pady=5, padx=5)
+
+        tk.Button(
+            button_grid,
+            text="View Event Logs",
+            command=lambda: show_event_logs(),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Increased from 20 to 25
+        ).grid(row=1, column=1, pady=5, padx=5)
+
+        # Second column buttons (add this after the View Event Logs button)
+        tk.Button(
+            button_grid,
+            text="Start Troubleshooting Wizard",
+            command=lambda: show_troubleshooting_wizard(),
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=25  # Same width as other buttons
+        ).grid(row=2, column=1, pady=5, padx=5)
+
+        def show_troubleshooting_wizard():
+            """Show step-by-step troubleshooting wizard"""
+            wizard_window = tk.Toplevel(troubleshoot_dialog)
+            wizard_window.title(f"Troubleshooting Wizard - {pc_name}")
+            wizard_window.geometry("700x500")
+            wizard_window.configure(bg=self.primary_bg_color)
+            wizard_window.transient(troubleshoot_dialog)
+            wizard_window.grab_set()
+
+            # Center the window
+            x = troubleshoot_dialog.winfo_x() + 50
+            y = troubleshoot_dialog.winfo_y() + 50
+            wizard_window.geometry(f"700x500+{x}+{y}")
+
+            # Main frame
+            wizard_frame = tk.Frame(wizard_window, bg=self.primary_bg_color)
+            wizard_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+            # Step indicator
+            step_label = tk.Label(
+                wizard_frame,
+                text="Step 1 of 5",
+                bg=self.primary_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 12, 'bold')
+            )
+            step_label.pack(pady=(0, 10))
+
+            # Content frame
+            content_frame = tk.Frame(wizard_frame, bg=self.primary_bg_color)
+            content_frame.pack(fill=tk.BOTH, expand=True)
+
+            # Result display
+            result_text = tk.Text(
+                content_frame,
+                height=10,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 10),
+                wrap=tk.WORD
+            )
+            result_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+            current_step = {"value": 1}
+
+            def next_step():
+                if current_step["value"] < 5:
+                    current_step["value"] += 1
+                    update_step_content()
+                    if current_step["value"] == 5:
+                        next_button.configure(state="disabled")
+                prev_button.configure(state="normal")
+
+            def prev_step():
+                if current_step["value"] > 1:
+                    current_step["value"] -= 1
+                    update_step_content()
+                    if current_step["value"] == 1:
+                        prev_button.configure(state="disabled")
+                next_button.configure(state="normal")
+
+            # Navigation frame
+            nav_frame = tk.Frame(wizard_frame, bg=self.primary_bg_color)
+            nav_frame.pack(fill=tk.X, pady=(10, 0))
+
+            prev_button = tk.Button(
+                nav_frame,
+                text="← Previous",
+                command=prev_step,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                state="disabled",
+                width=15
+            )
+            prev_button.pack(side=tk.LEFT, padx=5)
+
+            next_button = tk.Button(
+                nav_frame,
+                text="Next →",
+                command=next_step,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=15
+            )
+            next_button.pack(side=tk.RIGHT, padx=5)
+
+            close_button = tk.Button(
+                nav_frame,
+                text="Close",
+                command=wizard_window.destroy,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=15
+            )
+
+            def update_step_content():
+                """Update content based on current step"""
+                step = current_step["value"]
+                result_text.configure(state="normal")
+                result_text.delete(1.0, tk.END)
+                
+                if step == 1:
+                    step_label.configure(text="Step 1 of 5: Basic Connectivity")
+                    result_text.insert(tk.END, "Checking basic network connectivity...\n\n")
+                    try:
+                        ping_result = subprocess.run(
+                            ["ping", "-n", "2", pc_name],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if "Reply from" in ping_result.stdout:
+                            result_text.insert(tk.END, "✅ Network connectivity: OK\n")
+                            result_text.insert(tk.END, "\nNext step will check DNS resolution.")
+                        else:
+                            result_text.insert(tk.END, "❌ Network connectivity issue detected\n")
+                            result_text.insert(tk.END, "\nRecommended actions:\n")
+                            result_text.insert(tk.END, "1. Check network cable connection\n")
+                            result_text.insert(tk.END, "2. Verify network adapter settings\n")
+                            result_text.insert(tk.END, "3. Check if machine is powered on\n")
+                    except Exception as e:
+                        result_text.insert(tk.END, f"❌ Error checking connectivity: {str(e)}\n")
+
+                elif step == 2:
+                    step_label.configure(text="Step 2 of 5: DNS Resolution")
+                    result_text.insert(tk.END, "Checking DNS resolution...\n\n")
+                    try:
+                        ip = socket.gethostbyname(pc_name)
+                        result_text.insert(tk.END, f"✅ DNS Resolution successful\n")
+                        result_text.insert(tk.END, f"Resolved IP: {ip}\n")
+                        result_text.insert(tk.END, "\nNext step will check RDP port.")
+                    except socket.gaierror:
+                        result_text.insert(tk.END, "❌ DNS Resolution failed\n\n")
+                        result_text.insert(tk.END, "Recommended actions:\n")
+                        result_text.insert(tk.END, "1. Clear DNS cache\n")
+                        result_text.insert(tk.END, "2. Check DNS server settings\n")
+                        result_text.insert(tk.END, "3. Verify hostname is correct\n")
+
+                elif step == 3:
+                    step_label.configure(text="Step 3 of 5: RDP Port Check")
+                    result_text.insert(tk.END, "Checking RDP port (3389)...\n\n")
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(2)
+                        result = sock.connect_ex((pc_name, 3389))
+                        sock.close()
+                        if result == 0:
+                            result_text.insert(tk.END, "✅ RDP Port is accessible\n")
+                            result_text.insert(tk.END, "\nNext step will check RDP service.")
+                        else:
+                            result_text.insert(tk.END, "❌ RDP Port is not accessible\n\n")
+                            result_text.insert(tk.END, "Recommended actions:\n")
+                            result_text.insert(tk.END, "1. Check firewall settings\n")
+                            result_text.insert(tk.END, "2. Verify RDP is enabled on remote machine\n")
+                            result_text.insert(tk.END, "3. Check network security policies\n")
+                    except Exception as e:
+                        result_text.insert(tk.END, f"❌ Error checking RDP port: {str(e)}\n")
+
+                elif step == 4:
+                    step_label.configure(text="Step 4 of 5: RDP Service Check")
+                    result_text.insert(tk.END, "Checking RDP service status...\n\n")
+                    try:
+                        result = subprocess.run(
+                            ["powershell", "-Command",
+                             f"Get-Service -ComputerName {pc_name} -Name 'TermService' | Select-Object Status"],
+                            capture_output=True,
+                            text=True
+                        )
+                        if "Running" in result.stdout:
+                            result_text.insert(tk.END, "✅ RDP Service is running\n")
+                            result_text.insert(tk.END, "\nNext step will perform final checks.")
+                        else:
+                            result_text.insert(tk.END, "❌ RDP Service is not running\n\n")
+                            result_text.insert(tk.END, "Recommended actions:\n")
+                            result_text.insert(tk.END, "1. Start RDP service on remote machine\n")
+                            result_text.insert(tk.END, "2. Check service dependencies\n")
+                            result_text.insert(tk.END, "3. Verify service account permissions\n")
+                    except Exception as e:
+                        result_text.insert(tk.END, f"❌ Error checking RDP service: {str(e)}\n")
+
+                elif step == 5:
+                    step_label.configure(text="Step 5 of 5: Summary")
+                    result_text.insert(tk.END, "Troubleshooting Summary\n\n")
+                    result_text.insert(tk.END, "Completed Checks:\n")
+                    result_text.insert(tk.END, "1. Network Connectivity\n")
+                    result_text.insert(tk.END, "2. DNS Resolution\n")
+                    result_text.insert(tk.END, "3. RDP Port\n")
+                    result_text.insert(tk.END, "4. RDP Service\n\n")
+                    result_text.insert(tk.END, "Next Steps:\n")
+                    result_text.insert(tk.END, "• Try connecting to the machine\n")
+                    result_text.insert(tk.END, "• If issues persist, check the Event Viewer\n")
+                    result_text.insert(tk.END, "• Contact IT support if needed\n")
+                    
+                    # Hide the Next button and show Close button
+                    next_button.pack_forget()
+                    close_button.pack(side=tk.RIGHT, padx=5)
+
+                result_text.configure(state="disabled")
+
+            # Initialize first step
+            update_step_content()
+
+        # 5. Bottom buttons frame
+        bottom_frame = tk.Frame(main_frame, bg=self.primary_bg_color)
+        bottom_frame.pack(fill="x", pady=(20, 0), side="bottom")
+
+        # Retry connection button
+        tk.Button(
+            bottom_frame,
+            text=f"↺ Retry Connection",
+            command=lambda: [troubleshoot_dialog.destroy(), self.vm_manager.connect_to_pc(pc_name)],
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10, 'bold')
+        ).pack(side="left", padx=5)
+
+        # Close button
+        tk.Button(
+            bottom_frame,
+            text="Close",
+            command=troubleshoot_dialog.destroy,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 10)
+        ).pack(side="right", padx=5)
+
+        # Initial status update
+        update_status()
+
+        # Add cleanup handlers
+        troubleshoot_dialog.protocol("WM_DELETE_WINDOW", on_close)
+        troubleshoot_dialog.bind('<Escape>', lambda e: on_close())
+
+        # Add this function with the other diagnostic functions
+        def ping_machine():
+            """Ping the machine and show results"""
+            try:
+                result = subprocess.run(
+                    ["ping", "-n", "4", pc_name],
+                    capture_output=True,
+                    text=True
+                )
+                show_ping_results(result.stdout)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to ping machine: {str(e)}")
+
+        def show_ping_results(results):
+            """Show ping results in a new window"""
+            results_window = tk.Toplevel(troubleshoot_dialog)
+            results_window.title("Ping Results")
+            results_window.geometry("500x300")
+            results_window.configure(bg=self.primary_bg_color)
+            
+            text_widget = tk.Text(
+                results_window,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                font=('Consolas', 10)
+            )
+            text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            text_widget.insert('1.0', results)
+            text_widget.configure(state='disabled')
+
+        # After Network Diagnostics section and before Troubleshooting Tools
+        # Add Automated Diagnostics section
+        diagnostics_frame = tk.LabelFrame(
+            main_frame,
+            text=" Automated Diagnostics ",
+            bg=self.primary_bg_color,
+            fg=self.text_color,
+            font=('Segoe UI', 12, 'bold')
+        )
+        diagnostics_frame.pack(fill="x", pady=(0, 15))
+
+        def run_diagnostics():
+            """Run a series of automated diagnostic checks"""
+            progress_var.set(0)
+            progress_label.configure(text="Starting diagnostics...")
+            
+            # Create report header
+            report = ["=== Diagnostic Report ==="]
+            report.append(f"Machine: {pc_name}")
+            report.append(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            
+            # List of diagnostic checks to run
+            checks = [
+                ("DNS Resolution", check_dns_resolution),
+                ("RDP Port", check_rdp_availability),
+                ("Network Path", check_network_path),
+                ("Ping Response", check_ping_response),
+                ("Machine Status", check_machine_status)
+            ]
+            
+            progress_step = 100 / len(checks)
+            
+            for check_name, check_func in checks:
+                progress_label.configure(text=f"Running {check_name}...")
+                result = check_func()
+                report.append(f"[{check_name}]\n{result}\n")
+                progress_var.set(progress_var.get() + progress_step)
+                diagnostics_frame.update()
+            
+            progress_label.configure(text="Diagnostics complete!")
+            progress_var.set(100)
+            
+            # Show report
+            show_diagnostic_report("\n".join(report))
+
+        def check_dns_resolution():
+            try:
+                ip = socket.gethostbyname(pc_name)
+                return f"✅ DNS Resolution successful\nResolved IP: {ip}"
+            except socket.gaierror:
+                return "❌ DNS Resolution failed"
+
+        def check_rdp_availability():
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((pc_name, 3389))
+                sock.close()
+                return "✅ RDP Port (3389) is accessible" if result == 0 else "❌ RDP Port is not accessible"
+            except Exception as e:
+                return f"❌ RDP check failed: {str(e)}"
+
+        def check_network_path():
+            try:
+                result = subprocess.run(
+                    ["tracert", "-d", "-h", "5", pc_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                return f"Network path trace:\n{result.stdout}"
+            except Exception as e:
+                return f"❌ Network path check failed: {str(e)}"
+
+        def check_ping_response():
+            try:
+                result = subprocess.run(
+                    ["ping", "-n", "3", pc_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                return result.stdout
+            except Exception as e:
+                return f"❌ Ping check failed: {str(e)}"
+
+        def check_machine_status():
+            is_running = self.vm_manager.check_machine_status(pc_name)
+            return "✅ Machine is running" if is_running else "❌ Machine is offline"
+
+        def show_diagnostic_report(report_text):
+            report_window = tk.Toplevel(troubleshoot_dialog)
+            report_window.title("Diagnostic Report")
+            report_window.geometry("700x500")
+            report_window.configure(bg=self.primary_bg_color)
+            report_window.transient(troubleshoot_dialog)
+            report_window.grab_set()  # Make window modal
+
+            # Add report content
+            report_frame = tk.Frame(report_window, bg=self.primary_bg_color)
+            report_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # Add text widget with scrollbar
+            text_frame = tk.Frame(report_frame, bg=self.primary_bg_color)
+            text_frame.pack(fill="both", expand=True)
+
+            text_widget = tk.Text(
+                text_frame,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                font=('Consolas', 10),
+                wrap=tk.WORD
+            )
+            text_widget.pack(side="left", fill="both", expand=True)
+
+            scrollbar = tk.Scrollbar(text_frame, command=text_widget.yview)
+            scrollbar.pack(side="right", fill="y")
+            text_widget.configure(yscrollcommand=scrollbar.set)
+
+            # Insert report content
+            text_widget.insert("1.0", report_text)
+            text_widget.configure(state="disabled")
+
+            # Button frame for Export and Close buttons
+            button_frame = tk.Frame(report_frame, bg=self.primary_bg_color)
+            button_frame.pack(fill="x", pady=(10, 0))
+
+            # Export button
+            tk.Button(
+                button_frame,
+                text="Export Report",
+                command=lambda: export_report(),
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=15
+            ).pack(side="left", padx=5)
+
+            # Close button
+            tk.Button(
+                button_frame,
+                text="Close",
+                command=report_window.destroy,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=15
+            ).pack(side="right", padx=5)
+
+            def export_report():
+                file_path = filedialog.asksaveasfilename(
+                    defaultextension=".txt",
+                    filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                    initialfile=f"diagnostic_report_{pc_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                )
+                if file_path:
+                    with open(file_path, 'w') as f:
+                        f.write(report_text)
+                    messagebox.showinfo("Success", "Report exported successfully!")
+
+            # Handle window close button (X)
+            report_window.protocol("WM_DELETE_WINDOW", report_window.destroy)
+
+        # Add progress bar and label
+        progress_var = tk.DoubleVar()
+        progress_label = tk.Label(
+            diagnostics_frame,
+            text="Ready to run diagnostics",
+            bg=self.primary_bg_color,
+            fg=self.text_color
+        )
+        progress_label.pack(pady=(5, 0))
+
+        ttk.Progressbar(
+            diagnostics_frame,
+            variable=progress_var,
+            maximum=100,
+            length=300,
+            mode='determinate'
+        ).pack(pady=5)
+
+        # Add Run Diagnostics button
+        tk.Button(
+            diagnostics_frame,
+            text="Run Full Diagnostics",
+            command=run_diagnostics,
+            bg=self.button_bg_color,
+            fg=self.text_color,
+            width=20
+        ).pack(pady=5)
+
+        def show_knowledge_base():
+            """Show Knowledge Base in a separate window"""
+            # Common issues and solutions
+            common_issues = {
+                "Cannot Connect to RDP": [
+                    "1. Verify machine is powered on",
+                    "2. Check if RDP service is running",
+                    "3. Ensure firewall allows RDP (Port 3389)",
+                    "4. Try clearing DNS cache",
+                    "5. Check network connectivity"
+                ],
+                "DNS Resolution Failed": [
+                    "1. Verify hostname is correct",
+                    "2. Clear local DNS cache",
+                    "3. Check DNS server settings",
+                    "4. Try using IP address directly",
+                    "5. Update DNS records if needed"
+                ],
+                "High Network Latency": [
+                    "1. Check network load",
+                    "2. Verify network path",
+                    "3. Test connection stability",
+                    "4. Check for network congestion",
+                    "5. Monitor bandwidth usage"
+                ],
+                "Machine Not Responding": [
+                    "1. Verify power status",
+                    "2. Check network connectivity",
+                    "3. Try ping test",
+                    "4. Check for system updates",
+                    "5. Verify resource usage"
+                ]
+            }
+
+            # Define apply_quick_fix function
+            def apply_quick_fix():
+                """Apply quick fix based on selected issue"""
+                selected_issue = issue_var.get()
+                if selected_issue == "DNS Resolution Failed":
+                    self.run_elevated_command("powershell", "Clear-DnsClientCache")
+                elif selected_issue == "Cannot Connect to RDP":
+                    check_rdp_port()
+                elif selected_issue == "High Network Latency":
+                    test_network_path()
+                elif selected_issue == "Machine Not Responding":
+                    update_status()
+
+            kb_window = tk.Toplevel(troubleshoot_dialog)
+            kb_window.title("Knowledge Base")
+            kb_window.geometry("700x600")
+            kb_window.configure(bg=self.primary_bg_color)
+            kb_window.transient(troubleshoot_dialog)
+            kb_window.grab_set()
+
+            # Center the window
+            x = troubleshoot_dialog.winfo_x() + 50
+            y = troubleshoot_dialog.winfo_y() + 50
+            kb_window.geometry(f"700x600+{x}+{y}")
+
+            # Create main frame
+            kb_frame = tk.Frame(kb_window, bg=self.primary_bg_color)
+            kb_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+            # Add issue selector label with larger font
+            tk.Label(
+                kb_frame,
+                text="Select Issue:",
+                bg=self.primary_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 12, 'bold')
+            ).pack(anchor="w")
+
+            # Larger combobox
+            issue_var = tk.StringVar()
+            issue_selector = ttk.Combobox(
+                kb_frame,
+                textvariable=issue_var,
+                values=list(common_issues.keys()),
+                state="readonly",
+                width=40,
+                font=('Segoe UI', 11)
+            )
+            issue_selector.pack(pady=(5, 15))
+
+            # Larger solution display
+            solution_text = tk.Text(
+                kb_frame,
+                height=8,
+                bg=self.secondary_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 11),
+                wrap=tk.WORD
+            )
+            solution_text.pack(fill="x", pady=(0, 15))
+
+            # Add back the show_solution function
+            def show_solution(*args):
+                """Display solution for selected issue"""
+                selected_issue = issue_var.get()
+                if selected_issue:
+                    solution_text.configure(state="normal")
+                    solution_text.delete("1.0", tk.END)
+                    solution_text.insert("1.0", "\n".join(common_issues[selected_issue]))
+                    solution_text.configure(state="disabled")
+
+            # Bind selection change to show solution
+            issue_selector.bind("<<ComboboxSelected>>", show_solution)
+
+            # Add back the Quick Actions section
+            tk.Label(
+                kb_frame,
+                text="Quick Actions:",
+                bg=self.primary_bg_color,
+                fg=self.text_color,
+                font=('Segoe UI', 12, 'bold')
+            ).pack(anchor="w", pady=(0, 10))
+
+            # Action buttons frame
+            button_frame = tk.Frame(kb_frame, bg=self.primary_bg_color)
+            button_frame.pack(fill="x")
+
+            tk.Button(
+                button_frame,
+                text="Apply Quick Fix",
+                command=apply_quick_fix,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=20,
+                font=('Segoe UI', 10)
+            ).pack(side="left", padx=5)
+
+            tk.Button(
+                button_frame,
+                text="Run Diagnostics",
+                command=run_diagnostics,
+                bg=self.button_bg_color,
+                fg=self.text_color,
+                width=20,
+                font=('Segoe UI', 10)
+            ).pack(side="left", padx=5)
+
+            # Keep the show_solution function and binding
+            def show_solution(*args):
+                """Display solution for selected issue"""
+                selected_issue = issue_var.get()
+                if selected_issue:
+                    solution_text.configure(state="normal")
+                    solution_text.delete("1.0", tk.END)
+                    solution_text.insert("1.0", "\n".join(common_issues[selected_issue]))
+                    solution_text.configure(state="disabled")
+
+            # Bind selection change to show solution
+            issue_selector.bind("<<ComboboxSelected>>", show_solution)
+
+        # Rest of the code...
+
+        
+
+        def show_event_logs():
+            """Show relevant Event Viewer logs"""
+            try:
+                # Get RDP and System logs for the machine
+                result = subprocess.run(
+                    ["powershell", "-Command",
+                     f"Get-WinEvent -ComputerName {pc_name} " +
+                     "-LogName 'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'," +
+                     "'System' -MaxEvents 50 | Where-Object {$_.Message -like '*remote*' -or " +
+                     "$_.Message -like '*RDP*' -or $_.Message -like '*network*'} | " +
+                     "Select-Object TimeCreated, LevelDisplayName, Message | Format-List"],
+                    capture_output=True,
+                    text=True
+                )
+
+                # Create log window
+                log_window = tk.Toplevel(troubleshoot_dialog)
+                log_window.title(f"Event Logs - {pc_name}")
+                log_window.geometry("800x600")
+                log_window.configure(bg=self.primary_bg_color)
+                log_window.transient(troubleshoot_dialog)
+                log_window.grab_set()
+
+                # Center the window
+                x = troubleshoot_dialog.winfo_x() + 50
+                y = troubleshoot_dialog.winfo_y() + 50
+                log_window.geometry(f"800x600+{x}+{y}")
+
+                # Create main frame
+                log_frame = tk.Frame(log_window, bg=self.primary_bg_color)
+                log_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+                # Add text widget with scrollbar
+                text_frame = tk.Frame(log_frame, bg=self.primary_bg_color)
+                text_frame.pack(fill=tk.BOTH, expand=True)
+
+                text_widget = tk.Text(
+                    text_frame,
+                    bg=self.secondary_bg_color,
+                    fg=self.text_color,
+                    font=('Consolas', 10),
+                    wrap=tk.WORD
+                )
+                text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+                scrollbar = tk.Scrollbar(text_frame, command=text_widget.yview)
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+                text_widget.configure(yscrollcommand=scrollbar.set)
+
+                # Insert log content
+                if result.returncode == 0 and result.stdout.strip():
+                    text_widget.insert("1.0", result.stdout)
+                else:
+                    text_widget.insert("1.0", "No relevant logs found or unable to access Event Viewer.\n\n")
+                    if result.stderr:
+                        text_widget.insert(tk.END, f"Error: {result.stderr}")
+
+                text_widget.configure(state="disabled")
+
+                # Add close button
+                tk.Button(
+                    log_frame,
+                    text="Close",
+                    command=log_window.destroy,
+                    bg=self.button_bg_color,
+                    fg=self.text_color,
+                    width=15
+                ).pack(pady=(10, 0))
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Error",
+                    f"Failed to retrieve Event Viewer logs: {str(e)}\n\n"
+                    "Make sure you have appropriate permissions and the remote machine is accessible."
+                )
+
 class ThemeSwitch(tk.Canvas):
     def __init__(self, parent, current_theme="dark", command=None):
-    # Initialize with the correct theme's header color
-        super().__init__(parent, width=60, height=30, 
-                    bg=THEMES[current_theme]["header_bg"], 
-                    highlightthickness=0)
+        # Initialize with the correct theme's header color
+        super().__init__(parent, width=60, height=30,
+                        bg=THEMES[current_theme]["header_bg"],
+                        highlightthickness=0)  # Fixed indentation here
         self.command = command
         
         # Initialize switch state based on provided theme
